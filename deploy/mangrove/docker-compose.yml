@@ -5,7 +5,7 @@ name: remote-config
 
 services:
   api:
-    image: ghcr.io/rezoch340/remote-config-backend:${REMOTE_CONFIG_VERSION}
+    image: ghcr.io/rezoch340/remote-config-api:${REMOTE_CONFIG_VERSION}
     container_name: remote-config-api
     restart: unless-stopped
     volumes:
@@ -16,7 +16,7 @@ services:
       - 1panel-network
 
   web:
-    image: ghcr.io/rezoch340/remote-config-frontend:${REMOTE_CONFIG_VERSION}
+    image: ghcr.io/rezoch340/remote-config-web:${REMOTE_CONFIG_VERSION}
     container_name: remote-config-web
     restart: unless-stopped
     volumes:
@@ -31,7 +31,7 @@ services:
   # 一次性种子(管理员 + 权限目录):docker compose run --rm seed
   # 迁移不用管,api 启动时自动执行
   seed:
-    image: ghcr.io/rezoch340/remote-config-backend:${REMOTE_CONFIG_VERSION}
+    image: ghcr.io/rezoch340/remote-config-api:${REMOTE_CONFIG_VERSION}
     command: ["node", "dist/scripts/seed-admin.js"]
     profiles:
       - seed

@@ -18,6 +18,7 @@ const startedAt = new Date().toISOString();
 let adminToken;
 let userId;
 let roleId;
+let appId;
 let failed = false;
 
 function assertPublic(value) {
@@ -161,7 +162,64 @@ async function main() {
     assert.ok(adminLogs.rows.some((log) => log.subject === 'rbac-user-role' && log.action === action
       && log.targetId === String(deletedUserId) && log.status === 'succeeded'), `Missing assignment audit: ${action}`);
   }
-  console.log('PASS: login, users, live RBAC changes, root-only writes, password/disable/delete, safe audit logs');
+  await remoteConfigSmoke();
+  console.log('PASS: login, users, live RBAC changes, root-only writes, password/disable/delete, safe audit logs, remote config');
+}
+
+// 建应用 → 加 public/private 参数 → 无 key 只见 public → 带 server key 见全部 → ETag/304
+async function remoteConfigSmoke() {
+  const slug = `smoke-${suffix.replace(/_/g, '-')}`;
+  const app = await request('POST', '/config/apps', { body: { name: 'Smoke App', slug } });
+  appId = app.id;
+  assert.match(app.serverKey, /^[0-9a-f]{64}$/, 'serverKey should be 64 hex chars');
+  await request('POST', '/config/apps', { body: { name: 'dup', slug }, status: 409 });
+
+  const environments = await request('GET', `/config/apps/${appId}/environments`);
+  assert.deepEqual(environments.map((environment) => environment.name), ['dev', 'prod']);
+  const prod = environments.find((environment) => environment.name === 'prod');
+
+  await request('POST', `/config/environments/${prod.id}/params`, {
+    body: { key: 'Features:Beta', type: 'boolean', value: 'true' },
+  });
+  await request('POST', `/config/environments/${prod.id}/params`, {
+    body: { key: 'Secrets:Token', type: 'text', scope: 'private', value: 'hidden' },
+  });
+  await request('POST', `/config/environments/${prod.id}/params`, {
+    body: { key: 'Features:Beta', type: 'boolean', value: 'true' }, status: 409,
+  });
+  await request('POST', `/config/environments/${prod.id}/params`, {
+    body: { key: 'bad key', type: 'text', value: 'x' }, status: 400,
+  });
+  const imported = await request('POST', `/config/environments/${prod.id}/params/import`, {
+    body: { 'App:Theme': { primary: '#000' }, 'App:MinVersion': '1.0.0' },
+  });
+  assert.equal(imported.imported, 2);
+
+  const publicUrl = `${baseUrl}/v1/config/${slug}/prod`;
+  const anonymous = await fetch(publicUrl);
+  assert.equal(anonymous.status, 200);
+  const etag = anonymous.headers.get('etag');
+  assert.match(etag ?? '', /^W\/"/, 'public fetch should return a weak ETag');
+  const anonymousBody = await anonymous.json();
+  assert.deepEqual(anonymousBody, {
+    'App:MinVersion': '1.0.0', 'App:Theme': { primary: '#000' }, 'Features:Beta': true,
+  });
+  assert.ok(!('Secrets:Token' in anonymousBody), 'private param leaked without key');
+
+  const cached = await fetch(publicUrl, { headers: { 'if-none-match': etag } });
+  assert.equal(cached.status, 304);
+
+  const withKey = await fetch(publicUrl, { headers: { 'x-api-key': app.serverKey } });
+  assert.equal(withKey.status, 200);
+  assert.equal((await withKey.json())['Secrets:Token'], 'hidden');
+  assert.equal((await fetch(publicUrl, { headers: { 'x-api-key': 'wrong' } })).status, 401);
+  assert.equal((await fetch(`${baseUrl}/v1/config/${slug}/nope`)).status, 404);
+
+  const [beta] = await request('GET', `/config/environments/${prod.id}/params?search=Beta`);
+  await request('PATCH', `/config/params/${beta.id}`, { body: { value: 'false' } });
+  const changed = await fetch(publicUrl, { headers: { 'if-none-match': etag } });
+  assert.equal(changed.status, 200, 'ETag should change after an update');
+  assert.equal((await changed.json())['Features:Beta'], false);
 }
 
 try {
@@ -171,7 +229,7 @@ try {
   console.error(`FAIL: ${error.message}`);
 } finally {
   // Only remove objects created by this run; try both even if either fails.
-  for (const path of [userId && `/users/${userId}`, roleId && `/rbac/roles/${roleId}`].filter(Boolean)) {
+  for (const path of [userId && `/users/${userId}`, roleId && `/rbac/roles/${roleId}`, appId && `/config/apps/${appId}`].filter(Boolean)) {
     try {
       await request('DELETE', path);
     } catch (error) {

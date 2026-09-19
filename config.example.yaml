@@ -18,9 +18,9 @@ frontend:
 db:
   host: 127.0.0.1
   port: 55432
-  user: admin_base
-  password: admin_base
-  database: admin_base
+  user: remote_config
+  password: remote_config
+  database: remote_config
 
 redis:
   host: 127.0.0.1
@@ -29,7 +29,7 @@ redis:
   db: 0
 
 jwt:
-  secret: admin-base-change-this-secret-before-production
+  secret: remote-config-change-this-secret-before-production
   expiresIn: 7d
   authorizationCacheTtlSeconds: 60
 

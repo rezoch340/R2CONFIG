@@ -5,7 +5,7 @@
 
 ## 目标
 
-给自己的 app（自己的各个 app）做动态配置下发：后台改一个值，app 下次拉取就是新的。参考 Nona Config 的交互与视觉，不 fork。
+给自己的 app（自己的各个 app）做动态配置下发：后台改一个值，app 下次拉取就是新的。参考 Nona Config 的交互与视觉，不 fork。顶层实体叫「应用」（App），不叫 Project。
 
 ## 非目标
 
@@ -16,25 +16,26 @@
 三张表，加一个 Drizzle 迁移 `0001_remote_config.sql`，沿用 `users.schema.ts` 的写法（serial id、withTimezone 时间戳、软删不需要）。
 
 ```
-config_projects
+config_apps
   id            serial pk
   name          varchar(64)  not null            # 显示名
-  slug          varchar(64)  not null unique     # 小写字母数字连字符，作为 URL/日志标识
-  api_key       varchar(64)  not null unique     # 32 字节随机 hex，只读拉取凭证
+  slug          varchar(64)  not null unique     # 小写字母数字连字符，公开拉取 URL 用它标识应用
+  server_key    varchar(64)  not null unique     # 32 字节随机 hex；带上它才能读到 private 参数
   created_at    timestamptz  not null default now()
 
 config_environments
   id            serial pk
-  project_id    int not null -> config_projects.id on delete cascade
-  name          varchar(32)  not null            # 建项目时自动插 dev、prod；之后可增删
+  app_id        int not null -> config_apps.id on delete cascade
+  name          varchar(32)  not null            # 建应用时自动插 dev、prod；之后可增删
   created_at    timestamptz  not null default now()
-  unique (project_id, name)
+  unique (app_id, name)
 
 config_params
   id            serial pk
   environment_id int not null -> config_environments.id on delete cascade
   key           varchar(128) not null            # 形如 Group:Key；冒号前为分组，前端据此折叠
   type          varchar(16)  not null            # text | boolean | json
+  scope         varchar(16)  not null default 'public'   # public: 无需凭证可读; private: 仅 server_key 可读
   value         text         not null            # 原文；boolean 存 "true"/"false"，json 存序列化串
   updated_at    timestamptz  not null default now()
   unique (environment_id, key)
@@ -50,34 +51,35 @@ config_params
 
 | 方法 | 路径 | 权限 |
 |---|---|---|
-| GET | `/api/config/projects` | read |
-| POST | `/api/config/projects` `{name, slug}` → 自动建 dev、prod | create |
-| PATCH | `/api/config/projects/:id` `{name}` | update |
-| DELETE | `/api/config/projects/:id` | delete |
-| POST | `/api/config/projects/:id/rotate-key` → 新 api_key | update |
-| GET | `/api/config/projects/:id/environments` | read |
-| POST | `/api/config/projects/:id/environments` `{name}` | create |
+| GET | `/api/config/apps` | read |
+| POST | `/api/config/apps` `{name, slug}` → 自动建 dev、prod | create |
+| PATCH | `/api/config/apps/:id` `{name}` | update |
+| DELETE | `/api/config/apps/:id` | delete |
+| POST | `/api/config/apps/:id/rotate-key` → 新 server_key | update |
+| GET | `/api/config/apps/:id/environments` | read |
+| POST | `/api/config/apps/:id/environments` `{name}` | create |
 | DELETE | `/api/config/environments/:id` | delete |
 | GET | `/api/config/environments/:id/params?search=` | read |
-| POST | `/api/config/environments/:id/params` `{key, type, value}` | create |
-| PATCH | `/api/config/params/:id` `{type?, value?}` | update |
+| POST | `/api/config/environments/:id/params` `{key, type, scope, value}` | create |
+| PATCH | `/api/config/params/:id` `{type?, scope?, value?}` | update |
 | DELETE | `/api/config/params/:id` | delete |
-| POST | `/api/config/environments/:id/params/import` `{ "Group:Key": value, ... }` → upsert，值类型按 JS 类型推断（boolean → boolean，object/array → json，其余 text） | create |
+| POST | `/api/config/environments/:id/params/import` `{ "Group:Key": value, ... }` → upsert，值类型按 JS 类型推断（boolean → boolean，object/array → json，其余 text），scope 一律 public，已存在的保留原 scope | create |
 
-api_key 只在列表/详情返回给有 `read config` 权限的账号，前端带复制按钮。
+server_key 只在列表/详情返回给有 `read config` 权限的账号，前端带复制按钮。
 
 权限目录：`seed-admin.ts` 追加 `read/create/update/delete` × `config`，描述"查看/创建/修改/删除远程配置"。审计：`system-audit-definition.ts` 追加 `config: { label: '远程配置', subject: 'config', targetType: 'config' }`，写操作自动进系统日志。
 
 ### 公开拉取接口（`@Public`）
 
 ```
-GET /api/v1/config/:envName          # 同样在全局前缀下；v1 与后台路径区分开
-Header: X-Api-Key: <project api_key>
+GET /api/v1/config/:slug/:envName               # 同样在全局前缀下；v1 与后台路径区分开
+Header (可选): X-Api-Key: <app server_key>
 ```
 
-- 按 api_key 找项目，再按 `envName` 找环境；任一不存在 → 404，无 key 或 key 错 → 401
+- 按 slug 找应用，再按 `envName` 找环境；任一不存在 → 404
+- 不带 key：只返回 `scope=public` 的参数。带 key 且匹配：public + private 全返回。带 key 但不匹配 → 401
 - 响应：`{ "App:Announcement": {...}, "Features:BiometricLogin": true, "Onboarding:Variant": "carousel" }`，按 type 转成真值
-- `ETag`：环境下 `count(*)` 与 `max(updated_at)` 拼串取 sha1，弱 ETag。请求带 `If-None-Match` 命中 → 304 空体
+- `ETag`：对本次返回的参数集合取 `count(*)` 与 `max(updated_at)` 拼串 sha1，弱 ETag（public 与全量的 ETag 不同）。请求带 `If-None-Match` 命中 → 304 空体
 - `Cache-Control: no-cache`（让客户端每次带 ETag 回来验证）
 - 不限流、不缓存；PG 单查一次够用
 
@@ -85,14 +87,14 @@ Header: X-Api-Key: <project api_key>
 
 ### 顶栏切换器
 
-`app-shell.tsx` 顶栏加"当前项目 ▾ / 当前环境 ▾"两个下拉。选中值存 localStorage `rc.activeProjectId` / `rc.activeEnvId`；首次进入默认第一个项目的 `prod`。项目列表来自 `/api/config/projects`，环境列表随项目变化。
+`app-shell.tsx` 顶栏加"当前应用 ▾ / 当前环境 ▾"两个下拉。选中值存 localStorage `rc.activeAppId` / `rc.activeEnvId`；首次进入默认第一个应用的 `prod`。应用列表来自 `/api/config/apps`，环境列表随应用变化。
 
 ### 页面
 
-- `/params`（`/` 重定向到这里）：显示当前 project+env 的参数。列表按 `Group` 折叠分组（冒号前缀，无冒号归 "默认"）；值列 boolean 渲染开关、text 渲染单行输入、json 渲染等宽多行；行内改值出现 Update 按钮，点了才提交；详情列显示类型；操作列 Edit（弹窗改类型和值）/ Delete；顶部搜索（key 包含匹配，后端 `search` 参数）、Bulk Import（弹窗贴 JSON）、Add Parameter。
-- `/projects`：项目卡片/表格，新建项目弹窗，行内展示 api_key + 复制 + 重置，展开管理环境（增删）。
+- `/params`（`/` 重定向到这里）：显示当前 app+env 的参数。列表按 `Group` 折叠分组（冒号前缀，无冒号归 "默认"）；值列 boolean 渲染开关、text 渲染单行输入、json 渲染等宽多行；行内改值出现 Update 按钮，点了才提交；详情列显示类型和 scope（public / private）；操作列 Edit（弹窗改类型、scope 和值）/ Delete；顶部搜索（key 包含匹配，后端 `search` 参数）、Bulk Import（弹窗贴 JSON）、Add Parameter。
+- `/apps`：应用列表，新建应用弹窗，行内展示 server_key + 复制 + 重置，展开管理环境（增删）。
 
-导航：`app-shell` 的"工作台"分组下加"参数"和"项目"两项，权限 `{ action: 'read', subject: 'config' }`。
+导航：`app-shell` 的"工作台"分组下加"参数"和"应用"两项，权限 `{ action: 'read', subject: 'config' }`。
 
 ### 视觉
 
@@ -100,8 +102,8 @@ Header: X-Api-Key: <project api_key>
 
 ## 测试
 
-- 后端：`config.service.spec.ts` 覆盖 key 校验、json 校验、import 类型推断、ETag 计算；跟底座现有 spec 风格一致。
-- `tests/api-smoke.mjs` 追加一段：建项目 → 加参数 → 用 api_key 拉 `/api/v1/config/prod` → 校验真值与 304。
+- 后端：`config.service.spec.ts` 覆盖 key 校验、json 校验、import 类型推断、scope 过滤、ETag 计算；跟底座现有 spec 风格一致。
+- `tests/api-smoke.mjs` 追加一段：建应用 → 加一个 public 一个 private 参数 → 无 key 拉 `/api/v1/config/<slug>/prod` 只见 public → 带 server_key 见全部 → 校验真值与 304。
 - 前端不加 e2e。
 
 ## 部署

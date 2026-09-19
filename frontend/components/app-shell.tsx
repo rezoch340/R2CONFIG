@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import {
   Blocks,
   Boxes,
@@ -11,7 +12,9 @@ import {
   LogOut,
   KeySquare,
   Menu,
+  Moon,
   ShieldCheck,
+  Sun,
   SlidersHorizontal,
   UserRound,
   Users,
@@ -260,6 +263,21 @@ function ActiveConfigSwitcher() {
   );
 }
 
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={isDark ? '切换到浅色' : '切换到深色'}
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+    >
+      {isDark ? <Sun /> : <Moon />}
+    </Button>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [isMobileNavigationOpen, setIsMobileNavigationOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -302,7 +320,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Menu />
           </Button>
           <ActiveConfigSwitcher />
-          <DropdownMenu>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <DropdownMenu>
             <DropdownMenuTrigger
               render={
                 <Button variant="ghost" className="h-9 gap-2 px-2.5">
@@ -331,7 +351,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 退出登录
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          </div>
         </header>
         <main className="min-w-0 flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
           {/* key 绑路由:路径一变就重挂,入场动画随之重放。

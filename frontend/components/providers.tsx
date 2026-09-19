@@ -5,6 +5,7 @@ import {
   QueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
+import { ThemeProvider } from 'next-themes';
 import { AuthenticationProvider } from '@/lib/auth';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -26,11 +27,13 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthenticationProvider>
-        <TooltipProvider>{children}</TooltipProvider>
-      </AuthenticationProvider>
-      <Toaster richColors position="top-right" />
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <QueryClientProvider client={queryClient}>
+        <AuthenticationProvider>
+          <TooltipProvider>{children}</TooltipProvider>
+        </AuthenticationProvider>
+        <Toaster richColors position="top-right" />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

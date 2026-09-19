@@ -189,8 +189,9 @@ function Navigation({
   );
 }
 
-// 顶栏全局上下文:当前应用 / 当前环境,所有配置页面都跟着它走
+// 顶栏「当前应用 / 当前环境」只服务参数页,别的页面不显示
 function ActiveConfigSwitcher() {
+  const pathname = usePathname();
   const { can } = useAuthentication();
   const {
     apps,
@@ -200,7 +201,7 @@ function ActiveConfigSwitcher() {
     selectApp,
     selectEnvironment,
   } = useActiveConfig();
-  if (!can('read', 'config')) {
+  if (!pathname.startsWith('/params') || !can('read', 'config')) {
     return <div />;
   }
   return (

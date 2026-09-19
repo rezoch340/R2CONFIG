@@ -65,19 +65,21 @@ export interface SystemLogRecord {
 
 // ---------- 远程配置 ----------
 
+export interface ConfigEnvironment {
+  id: number;
+  appId: number;
+  name: string;
+  createdAt: string;
+}
+
+// 列表接口把环境一起带出来,前端不再逐个应用拉环境
 export interface ConfigApp {
   id: number;
   name: string;
   slug: string;
   serverKey: string;
   createdAt: string;
-}
-
-export interface ConfigEnvironment {
-  id: number;
-  appId: number;
-  name: string;
-  createdAt: string;
+  environments: ConfigEnvironment[];
 }
 
 export type ConfigParamType = 'text' | 'boolean' | 'json';

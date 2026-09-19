@@ -233,6 +233,21 @@ export const OPEN_API_RESPONSE_SCHEMAS = {
       createdAt: dateTimeSchema,
     },
   },
+  ConfigAppWithEnvironments: {
+    type: 'object',
+    required: ['id', 'name', 'slug', 'serverKey', 'createdAt', 'environments'],
+    properties: {
+      id: { type: 'integer', example: 1 },
+      name: { type: 'string', example: 'My App' },
+      slug: { type: 'string', example: 'my-app' },
+      serverKey: { type: 'string' },
+      createdAt: dateTimeSchema,
+      environments: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/ConfigEnvironment' },
+      },
+    },
+  },
   ConfigEnvironment: {
     type: 'object',
     required: ['id', 'appId', 'name', 'createdAt'],

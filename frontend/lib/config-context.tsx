@@ -66,17 +66,9 @@ export function ActiveConfigProvider({ children }: { children: ReactNode }) {
   const activeApp =
     apps.find((app) => app.id === activeAppId) ?? apps[0] ?? null;
 
-  const environmentsQuery = useQuery({
-    queryKey: ['config-environments', activeApp?.id],
-    queryFn: () =>
-      requestApi<ConfigEnvironment[]>(
-        `/config/apps/${activeApp!.id}/environments`,
-      ),
-    enabled: canRead && activeApp !== null,
-  });
   const environments = useMemo(
-    () => environmentsQuery.data ?? [],
-    [environmentsQuery.data],
+    () => activeApp?.environments ?? [],
+    [activeApp],
   );
 
   // 环境同理退级,默认优先 prod
@@ -104,7 +96,7 @@ export function ActiveConfigProvider({ children }: { children: ReactNode }) {
     () => ({
       apps,
       environments,
-      isLoading: appsQuery.isLoading || environmentsQuery.isLoading,
+      isLoading: appsQuery.isLoading,
       activeApp,
       activeEnvironment,
       selectApp,
@@ -114,7 +106,6 @@ export function ActiveConfigProvider({ children }: { children: ReactNode }) {
       apps,
       environments,
       appsQuery.isLoading,
-      environmentsQuery.isLoading,
       activeApp,
       activeEnvironment,
       selectApp,

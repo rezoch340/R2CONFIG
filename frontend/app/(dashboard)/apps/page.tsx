@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CopyButton } from '@/components/copy-button';
 import { FormDialog } from '@/components/form-dialog';
 import { PageHeader } from '@/components/page-header';
 import { PermissionBoundary } from '@/components/permission-boundary';
-import { QueryErrorState } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,13 +33,20 @@ export default function AppsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [renamingApp, setRenamingApp] = useState<ConfigApp | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [search, setSearch] = useState('');
 
   const invalidateApps = () =>
     queryClient.invalidateQueries({ queryKey: ['config-apps'] });
-  const invalidateEnvironments = (appId: number) =>
-    queryClient.invalidateQueries({
-      queryKey: ['config-environments', appId],
-    });
+
+  const visibleApps = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) return apps;
+    return apps.filter(
+      (app) =>
+        app.name.toLowerCase().includes(keyword) ||
+        app.slug.includes(keyword),
+    );
+  }, [apps, search]);
 
   const createMutation = useMutation({
     mutationFn: (body: { name: string; slug: string }) =>
@@ -97,7 +103,6 @@ export default function AppsPage() {
       );
       setConfirmation(null);
       await invalidateApps();
-      await invalidateEnvironments(action.app.id);
     },
     onError: (error) => toast.error(getRequestErrorMessage(error, '操作失败')),
   });
@@ -123,16 +128,38 @@ export default function AppsPage() {
           还没有应用,点右上角新建一个。
         </p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {apps.map((app) => (
-            <AppCard
-              key={app.id}
-              app={app}
-              onRename={() => setRenamingApp(app)}
-              onConfirm={setConfirmation}
-            />
-          ))}
-        </div>
+        <>
+          <div className="flex items-center gap-3">
+            <div className="relative max-w-sm flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                placeholder="搜索应用名或 slug…"
+                className="pl-8"
+                onChange={(changeEvent) => setSearch(changeEvent.target.value)}
+              />
+            </div>
+            <span className="font-mono text-xs text-muted-foreground">
+              {visibleApps.length} / {apps.length}
+            </span>
+          </div>
+          {visibleApps.length === 0 ? (
+            <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+              没有匹配的应用
+            </p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              {visibleApps.map((app) => (
+                <AppCard
+                  key={app.id}
+                  app={app}
+                  onRename={() => setRenamingApp(app)}
+                  onConfirm={setConfirmation}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <AppCreateDialog
@@ -194,12 +221,6 @@ function AppCard({
   const { can } = useAuthentication();
   const [newEnvironment, setNewEnvironment] = useState('');
 
-  const environmentsQuery = useQuery({
-    queryKey: ['config-environments', app.id],
-    queryFn: () =>
-      requestApi<ConfigEnvironment[]>(`/config/apps/${app.id}/environments`),
-  });
-
   const addEnvironment = useMutation({
     mutationFn: (name: string) =>
       requestApi<ConfigEnvironment>(`/config/apps/${app.id}/environments`, {
@@ -209,9 +230,7 @@ function AppCard({
     onSuccess: async (environment) => {
       toast.success(`环境 ${environment.name} 已添加`);
       setNewEnvironment('');
-      await queryClient.invalidateQueries({
-        queryKey: ['config-environments', app.id],
-      });
+      await queryClient.invalidateQueries({ queryKey: ['config-apps'] });
     },
     onError: (error) =>
       toast.error(getRequestErrorMessage(error, '添加环境失败')),
@@ -228,7 +247,7 @@ function AppCard({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border bg-card p-5">
+    <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold">{app.name}</h2>
@@ -292,9 +311,8 @@ function AppCard({
         <p className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
           环境
         </p>
-        {environmentsQuery.isError ? <QueryErrorState /> : null}
         <div className="flex flex-wrap items-center gap-2">
-          {(environmentsQuery.data ?? []).map((environment) => (
+          {app.environments.map((environment) => (
             <Badge
               key={environment.id}
               variant="secondary"

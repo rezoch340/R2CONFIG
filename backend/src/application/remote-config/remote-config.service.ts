@@ -38,8 +38,26 @@ export class RemoteConfigService {
 
   // ---------- 应用 ----------
 
-  listApps() {
-    return this.database.select().from(configApps).orderBy(asc(configApps.id));
+  // 应用列表连环境一起带出来:两次全表查询在内存里分组,避免前端每个应用再拉一次
+  async listApps() {
+    const [apps, environments] = await Promise.all([
+      this.database.select().from(configApps).orderBy(asc(configApps.id)),
+      this.database
+        .select()
+        .from(configEnvironments)
+        .orderBy(asc(configEnvironments.id)),
+    ]);
+    const environmentsByApp = new Map<number, typeof environments>();
+    for (const environment of environments) {
+      environmentsByApp.set(environment.appId, [
+        ...(environmentsByApp.get(environment.appId) ?? []),
+        environment,
+      ]);
+    }
+    return apps.map((app) => ({
+      ...app,
+      environments: environmentsByApp.get(app.id) ?? [],
+    }));
   }
 
   async createApp(input: CreateAppDto) {

@@ -32,7 +32,9 @@ export const OPEN_API_SUCCESS_SCHEMAS: Record<string, SchemaDefinition> = {
   AuthController_login: schemaReference('LoginResponse'),
   AuthController_me: schemaReference('AuthenticatedUser'),
   SystemLogsController_list: schemaReference('SystemLogPage'),
-  RemoteConfigController_listApps: arraySchemaReference('ConfigApp'),
+  RemoteConfigController_listApps: arraySchemaReference(
+    'ConfigAppWithEnvironments',
+  ),
   RemoteConfigController_createApp: schemaReference('ConfigApp'),
   RemoteConfigController_updateApp: schemaReference('ConfigApp'),
   RemoteConfigController_deleteApp: schemaReference('DeletedResult'),

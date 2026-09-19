@@ -19,6 +19,22 @@ function createRequest(
 }
 
 describe('系统访问审计定义推导', () => {
+  it('app 端拉取配置接口不推导审计,带全局前缀也一样', () => {
+    expect(
+      inferSystemAuditDefinition(
+        createRequest('GET', '/v1/config/my-app/prod'),
+      ),
+    ).toBeNull();
+    expect(
+      inferSystemAuditDefinition(
+        createRequest('GET', '/api/v1/config/my-app/prod'),
+      ),
+    ).toBeNull();
+    expect(
+      inferSystemAuditDefinition(createRequest('GET', '/api/config/apps')),
+    ).toMatchObject({ subject: 'config', action: 'read' });
+  });
+
   it('读取控制面接口时记录资源和查询条件', () => {
     const definition = inferSystemAuditDefinition(
       createRequest(

@@ -68,12 +68,13 @@ function routeSegments(request: AuthedRequest): string[] {
     .filter((routeSegment) => routeSegment.length > 0);
 }
 
-// app 端拉取接口挂在 /v1 下,客户端轮询不进审计;拦截器和异常过滤器都走这里,一处生效
-const APP_FACING_ROUTE_PREFIX = 'v1';
+// app 端拉取接口挂在 v1 段下,客户端轮询不进审计;拦截器和异常过滤器都走这里,一处生效。
+// 不看 segments[0]:部署时 globalPrefix 可能是 api,路径会变成 /api/v1/...
+const APP_FACING_ROUTE_SEGMENT = 'v1';
 
 function auditedResourceOf(request: AuthedRequest): AuditedResource | null {
   const segments = routeSegments(request);
-  if (segments[0] === APP_FACING_ROUTE_PREFIX) {
+  if (segments.includes(APP_FACING_ROUTE_SEGMENT)) {
     return null;
   }
   for (const routeSegment of segments) {

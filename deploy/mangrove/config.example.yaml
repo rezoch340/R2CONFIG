@@ -1,0 +1,36 @@
+# 服务器上的 config.yaml(600 权限,不入库)。容器内挂到 /app/config.yaml,前后端共用
+app:
+  port: 3100
+  globalPrefix: api            # 与前端同域,反代 /api/ -> 3100
+  openApiEnabled: true
+  trustedProxyHops: 1          # OpenResty 一跳,X-Forwarded-For 取真实 IP
+  corsOrigins:
+    - https://flags.example.com
+
+frontend:
+  apiUrl: https://flags.example.com/api
+  apiPort: 3100
+  allowedDevOrigins: []
+
+db:
+  host: 1Panel-postgresql-WdTm  # 同在 1panel-network,走容器名
+  port: 5432
+  user: remote_config
+  password: <填>
+  database: remote_config
+
+redis:
+  host: 1Panel-redis-5qXb
+  port: 6379
+  password: <填>
+  db: 3
+
+jwt:
+  secret: <openssl rand -base64 48>
+  expiresIn: 7d
+  authorizationCacheTtlSeconds: 60
+
+bootstrap:
+  admin:
+    username: admin
+    password: <填,首次种子用>

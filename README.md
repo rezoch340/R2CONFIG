@@ -60,6 +60,17 @@ pnpm dev:frontend
 
 管理员种子继续由 `pnpm seed:admin` 显式执行，创建超级管理员、七项通用权限与 `operator` 只读权限组；重复执行不会重置已存在管理员的密码。
 
+## 部署(mangrove)
+
+`deploy/mangrove/` 下是服务器用的单文件 compose、配置示例和同步脚本。流程:
+
+1. 服务器 `/opt/1panel/docker/compose/remote-config/config.yaml` 按 `deploy/mangrove/config.example.yaml` 填好(600 权限)
+2. 本机执行 `deploy/mangrove/deploy.sh`:rsync 源码到 `/opt/remote-config/src`,服务器本地构建镜像并启动。**迁移由 API 启动时自动执行**,不用手动跑
+3. 首次部署后跑一次种子建管理员:`cd /opt/1panel/docker/compose/remote-config && sudo docker compose run --rm seed`
+4. OpenResty 反代:`/` → `127.0.0.1:3101`,`/api/` → `127.0.0.1:3100`
+
+以后更新只需重复第 2 步。
+
 ## 验证
 
 ```bash

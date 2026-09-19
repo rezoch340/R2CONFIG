@@ -1,0 +1,52 @@
+# mangrove 部署:1Panel 编排单文件,放 /opt/1panel/docker/compose/remote-config/
+# 目录名 == project name;源码同步到 /opt/remote-config/src 在服务器本地构建镜像
+# OpenResty 是 host 网络,端口只绑 127.0.0.1,反代 / -> 3101, /api/ -> 3100
+name: remote-config
+
+services:
+  api:
+    build:
+      context: /opt/remote-config/src/backend
+      target: runtime
+    image: remote-config/api:local
+    container_name: remote-config-api
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:3100:3100"
+    networks:
+      - 1panel-network
+
+  web:
+    build:
+      context: /opt/remote-config/src/frontend
+    image: remote-config/web:local
+    container_name: remote-config-web
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:3101:3101"
+    networks:
+      - 1panel-network
+    depends_on:
+      - api
+
+  # 一次性种子(管理员 + 权限目录):docker compose run --rm seed
+  # 迁移不用管,api 启动时自动执行
+  seed:
+    build:
+      context: /opt/remote-config/src/backend
+      target: seed
+    image: remote-config/seed:local
+    profiles:
+      - seed
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    networks:
+      - 1panel-network
+
+networks:
+  1panel-network:
+    external: true

@@ -6,6 +6,7 @@ import { Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CopyButton } from '@/components/copy-button';
+import { FieldError } from '@/components/field-error';
 import { FormDialog } from '@/components/form-dialog';
 import { PageHeader } from '@/components/page-header';
 import { PermissionBoundary } from '@/components/permission-boundary';
@@ -13,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getRequestErrorMessage, requestApi } from '@/lib/api-client';
 import { useAuthentication } from '@/lib/auth';
 import { useActiveConfig } from '@/lib/config-context';
@@ -20,6 +22,7 @@ import { formatDateTime } from '@/lib/format';
 import type { ConfigApp, ConfigEnvironment } from '@/lib/models';
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const SLUG_HINT = '只能是小写字母、数字和连字符,例如 my-app';
 
 type Confirmation =
   | { type: 'delete-app'; app: ConfigApp }
@@ -29,7 +32,7 @@ type Confirmation =
 export default function AppsPage() {
   const queryClient = useQueryClient();
   const { can } = useAuthentication();
-  const { apps } = useActiveConfig();
+  const { apps, isLoading } = useActiveConfig();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [renamingApp, setRenamingApp] = useState<ConfigApp | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
@@ -123,7 +126,13 @@ export default function AppsPage() {
         }
       />
 
-      {apps.length === 0 ? (
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {Array.from(Array(4).keys()).map((cardIndex) => (
+            <AppCardSkeleton key={cardIndex} />
+          ))}
+        </div>
+      ) : apps.length === 0 ? (
         <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
           还没有应用,点右上角新建一个。
         </p>
@@ -220,6 +229,9 @@ function AppCard({
   const queryClient = useQueryClient();
   const { can } = useAuthentication();
   const [newEnvironment, setNewEnvironment] = useState('');
+  const [environmentError, setEnvironmentError] = useState<string | null>(
+    null,
+  );
 
   const addEnvironment = useMutation({
     mutationFn: (name: string) =>
@@ -240,9 +252,10 @@ function AppCard({
     formEvent.preventDefault();
     const name = newEnvironment.trim();
     if (!SLUG_PATTERN.test(name)) {
-      toast.error('环境名只能是小写字母、数字和连字符');
+      setEnvironmentError(`环境名${SLUG_HINT}`);
       return;
     }
+    setEnvironmentError(null);
     addEnvironment.mutate(name);
   }
 
@@ -339,7 +352,11 @@ function AppCard({
                 placeholder="staging"
                 maxLength={32}
                 className="h-7 w-28 font-mono text-xs"
-                onChange={(changeEvent) => setNewEnvironment(changeEvent.target.value)}
+                aria-invalid={!!environmentError}
+                onChange={(changeEvent) => {
+                  setNewEnvironment(changeEvent.target.value);
+                  setEnvironmentError(null);
+                }}
               />
               <Button
                 type="submit"
@@ -353,6 +370,7 @@ function AppCard({
             </form>
           ) : null}
         </div>
+        <FieldError message={environmentError} />
       </div>
     </section>
   );
@@ -371,17 +389,14 @@ function AppCreateDialog({
 }) {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [showErrors, setShowErrors] = useState(false);
+  const nameError = name.trim() ? null : '名称不能为空';
+  const slugError = SLUG_PATTERN.test(slug) ? null : `slug ${SLUG_HINT}`;
 
   async function submit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
-    if (!name.trim()) {
-      toast.error('名称不能为空');
-      return;
-    }
-    if (!SLUG_PATTERN.test(slug)) {
-      toast.error('slug 只能是小写字母、数字和连字符');
-      return;
-    }
+    setShowErrors(true);
+    if (nameError || slugError) return;
     await onCreate({ name: name.trim(), slug });
   }
 
@@ -403,8 +418,10 @@ function AppCreateDialog({
           maxLength={64}
           placeholder="My App"
           autoComplete="off"
+          aria-invalid={showErrors && !!nameError}
           onChange={(changeEvent) => setName(changeEvent.target.value)}
         />
+          <FieldError message={showErrors ? nameError : null} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="app-slug">Slug</Label>
@@ -415,10 +432,12 @@ function AppCreateDialog({
           placeholder="my-app"
           className="font-mono"
           autoComplete="off"
+          aria-invalid={showErrors && !!slugError}
           onChange={(changeEvent) =>
             setSlug(changeEvent.target.value.toLowerCase())
           }
         />
+          <FieldError message={showErrors ? slugError : null} />
       </div>
     </FormDialog>
   );
@@ -461,5 +480,32 @@ function AppRenameDialog({
         />
       </div>
     </FormDialog>
+  );
+}
+
+// 骨架和 AppCard 同结构:标题、拉取地址、server key、环境
+function AppCardSkeleton() {
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+      <div className="space-y-1.5">
+        <Skeleton className="h-5 w-28" />
+        <Skeleton className="h-3 w-44" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-8" />
+        <div className="flex gap-2">
+          <Skeleton className="h-5 w-12" />
+          <Skeleton className="h-5 w-12" />
+        </div>
+      </div>
+    </section>
   );
 }

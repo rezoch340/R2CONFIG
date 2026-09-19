@@ -11,6 +11,7 @@ import { QueryErrorState } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { getRequestErrorMessage, requestApi } from '@/lib/api-client';
 import { useAuthentication } from '@/lib/auth';
@@ -270,9 +271,7 @@ export default function ParamsPage() {
               <span className="text-right">操作</span>
             </div>
             {parametersQuery.isLoading ? (
-              <p className="p-8 text-center text-sm text-muted-foreground">
-                加载中…
-              </p>
+              <ParamRowsSkeleton />
             ) : groups.length === 0 ? (
               <p className="p-8 text-center text-sm text-muted-foreground">
                 {search ? '没有匹配的参数' : '这个环境还没有参数'}
@@ -319,7 +318,7 @@ export default function ParamsPage() {
                                   {param.type}
                                 </Badge>
                                 <Badge
-                                  variant={param.scope === 'private' ? 'default' : 'outline'}
+                                  variant={param.scope === 'private' ? 'warning' : 'outline'}
                                   className="w-fit font-mono uppercase"
                                 >
                                   {param.scope}
@@ -403,5 +402,37 @@ export default function ParamsPage() {
         onConfirm={() => deletingParam && deleteMutation.mutate(deletingParam.id)}
       />
     </PermissionBoundary>
+  );
+}
+
+// 骨架和真实行同一套网格,加载完不跳版
+function ParamRowsSkeleton() {
+  return (
+    <section>
+      <div className="flex items-center gap-2 px-4 py-2.5">
+        <Skeleton className="size-4" />
+        <Skeleton className="h-4 w-20" />
+      </div>
+      {Array.from(Array(4).keys()).map((rowIndex) => (
+        <div
+          key={rowIndex}
+          className="grid grid-cols-[minmax(180px,1fr)_minmax(240px,2fr)_120px_100px] items-start gap-4 border-t px-4 py-3"
+        >
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <Skeleton className="h-8 w-full max-w-md" />
+          <div className="space-y-1">
+            <Skeleton className="h-5 w-14" />
+            <Skeleton className="h-5 w-16" />
+          </div>
+          <div className="flex justify-end gap-1">
+            <Skeleton className="size-8" />
+            <Skeleton className="size-8" />
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }

@@ -39,7 +39,7 @@ export function DataTable<RowType>({
   transitionKey?: string | number;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-2xl border bg-card">
       <Table className={tableClassName}>
         <TableHeader>
           <TableRow className="bg-muted/40 hover:bg-muted/40">

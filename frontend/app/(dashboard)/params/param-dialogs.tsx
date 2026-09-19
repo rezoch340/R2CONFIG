@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { toast } from 'sonner';
+import { FieldError } from '@/components/field-error';
 import { FormDialog } from '@/components/form-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,21 @@ import type {
 } from '@/lib/models';
 
 const KEY_PATTERN = /^[A-Za-z0-9_.-]+(:[A-Za-z0-9_.-]+)*$/;
+const KEY_HINT = 'key 只能包含字母、数字、_ . -,分组用冒号分隔,例如 App:MinVersion';
+
+function validateKey(key: string): string | null {
+  return KEY_PATTERN.test(key.trim()) ? null : KEY_HINT;
+}
+
+function validateValue(type: ConfigParamType, value: string): string | null {
+  if (type !== 'json') return null;
+  try {
+    JSON.parse(value);
+    return null;
+  } catch {
+    return '值不是合法 JSON';
+  }
+}
 
 // 新增和编辑共用;传了 param 就是编辑,key 不可改
 export function ParamFormDialog({
@@ -47,24 +62,17 @@ export function ParamFormDialog({
     param?.scope ?? 'public',
   );
   const [value, setValue] = useState(param?.value ?? '');
+  // 提交过一次后才显示错误,避免刚打开就一片红
+  const [showErrors, setShowErrors] = useState(false);
+  const keyError = isEditing ? null : validateKey(key);
+  const valueError = validateValue(type, value);
 
   async function submit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
-    const trimmedKey = key.trim();
-    if (!KEY_PATTERN.test(trimmedKey)) {
-      toast.error('key 只能包含字母、数字、_ . -,分组用冒号分隔,例如 App:MinVersion');
-      return;
-    }
-    if (type === 'json') {
-      try {
-        JSON.parse(value);
-      } catch {
-        toast.error('值不是合法 JSON');
-        return;
-      }
-    }
+    setShowErrors(true);
+    if (keyError || valueError) return;
     await onSubmit({
-      key: trimmedKey,
+      key: key.trim(),
       type,
       scope,
       value: type === 'boolean' ? (value === 'true' ? 'true' : 'false') : value,
@@ -95,8 +103,10 @@ export function ParamFormDialog({
           placeholder="App:MinVersion"
           className="font-mono"
           autoComplete="off"
+          aria-invalid={showErrors && !!keyError}
           onChange={(changeEvent) => setKey(changeEvent.target.value)}
         />
+        <FieldError message={showErrors ? keyError : null} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -154,9 +164,11 @@ export function ParamFormDialog({
             rows={type === 'json' ? 6 : 2}
             className="font-mono text-xs"
             placeholder={type === 'json' ? '{"visible": true}' : ''}
+            aria-invalid={showErrors && !!valueError}
             onChange={(changeEvent) => setValue(changeEvent.target.value)}
           />
         )}
+        <FieldError message={showErrors ? valueError : null} />
       </div>
     </FormDialog>
   );
@@ -174,6 +186,7 @@ export function ParamImportDialog({
   onSubmit: (entries: Record<string, unknown>) => Promise<void>;
 }) {
   const [raw, setRaw] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   async function submit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -181,18 +194,21 @@ export function ParamImportDialog({
     try {
       parsed = JSON.parse(raw);
     } catch {
-      toast.error('不是合法 JSON');
+      setError('不是合法 JSON');
       return;
     }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      toast.error('顶层必须是对象:{ "Group:Key": 值 }');
+      setError('顶层必须是对象:{ "Group:Key": 值 }');
       return;
     }
-    const invalidKey = Object.keys(parsed).find((entryKey) => !KEY_PATTERN.test(entryKey));
+    const invalidKey = Object.keys(parsed).find(
+      (entryKey) => !KEY_PATTERN.test(entryKey),
+    );
     if (invalidKey) {
-      toast.error(`key 不合法:${invalidKey}`);
+      setError(`key 不合法:${invalidKey}`);
       return;
     }
+    setError(null);
     await onSubmit(parsed as Record<string, unknown>);
   }
 
@@ -211,8 +227,13 @@ export function ParamImportDialog({
         rows={12}
         className="font-mono text-xs"
         placeholder={'{\n  "App:MinVersion": "3.0.0",\n  "Features:OfflineMode": true,\n  "App:Announcement": { "visible": true }\n}'}
-        onChange={(changeEvent) => setRaw(changeEvent.target.value)}
+        aria-invalid={!!error}
+        onChange={(changeEvent) => {
+          setRaw(changeEvent.target.value);
+          setError(null);
+        }}
       />
+      <FieldError message={error} />
     </FormDialog>
   );
 }

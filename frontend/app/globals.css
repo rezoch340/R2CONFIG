@@ -129,15 +129,9 @@
     @apply font-sans;
   }
 
+  /* 扁平优先:不做背景光晕,层次靠色阶 */
   body {
     @apply bg-background text-foreground;
-    background-image:
-      radial-gradient(circle at 10% -10%, rgb(99 102 241 / 9%), transparent 28rem),
-      radial-gradient(circle at 100% 0%, rgb(79 70 229 / 7%), transparent 34rem);
-  }
-
-  .dark body {
-    background-image: none;
   }
 }
 

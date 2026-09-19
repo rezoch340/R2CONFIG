@@ -63,7 +63,7 @@ pnpm dev:frontend
 ## 发布与部署
 
 镜像由 GitHub Actions 构建:推送 `v*` tag 触发 `.github/workflows/publish-ghcr.yml`,发布
-`ghcr.io/rezoch340/remote-config-api` 和 `remote-config-frontend`(linux/amd64,同时打 `latest`)。
+`ghcr.io/rezoch340/remote-config-api` 和 `remote-config-web`(linux/amd64,同时打 `latest`)。
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0

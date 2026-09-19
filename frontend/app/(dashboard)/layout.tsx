@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { useAuthentication } from '@/lib/auth';
+import { ActiveConfigProvider } from '@/lib/config-context';
 
 export default function DashboardLayout({
   children,
@@ -22,5 +23,9 @@ export default function DashboardLayout({
   if (!user) {
     return null;
   }
-  return <AppShell>{children}</AppShell>;
+  return (
+    <ActiveConfigProvider>
+      <AppShell>{children}</AppShell>
+    </ActiveConfigProvider>
+  );
 }

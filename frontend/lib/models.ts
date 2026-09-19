@@ -62,3 +62,33 @@ export interface SystemLogRecord {
   userAgent: string | null;
   createdAt: string;
 }
+
+// ---------- 远程配置 ----------
+
+export interface ConfigApp {
+  id: number;
+  name: string;
+  slug: string;
+  serverKey: string;
+  createdAt: string;
+}
+
+export interface ConfigEnvironment {
+  id: number;
+  appId: number;
+  name: string;
+  createdAt: string;
+}
+
+export type ConfigParamType = 'text' | 'boolean' | 'json';
+export type ConfigParamScope = 'public' | 'private';
+
+export interface ConfigParameter {
+  id: number;
+  environmentId: number;
+  key: string;
+  type: ConfigParamType;
+  scope: ConfigParamScope;
+  value: string;
+  updatedAt: string;
+}

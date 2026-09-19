@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Blocks,
+  Boxes,
   FileClock,
   LayoutDashboard,
   LogOut,
   KeySquare,
   Menu,
   ShieldCheck,
+  SlidersHorizontal,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -24,12 +26,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useAuthentication } from '@/lib/auth';
+import { useActiveConfig } from '@/lib/config-context';
 import { combineClassNames } from '@/lib/utils';
 
 interface NavigationItem {
@@ -49,7 +59,18 @@ const NAVIGATION_GROUPS: Array<{
   {
     label: '工作台',
     items: [
-      { href: '/', label: '后台首页', icon: LayoutDashboard },
+      {
+        href: '/params',
+        label: '参数',
+        icon: SlidersHorizontal,
+        permission: { action: 'read', subject: 'config' },
+      },
+      {
+        href: '/apps',
+        label: '应用',
+        icon: Boxes,
+        permission: { action: 'read', subject: 'config' },
+      },
     ],
   },
   {
@@ -91,10 +112,10 @@ function Brand() {
       </span>
       <div>
         <p className="font-heading text-sm font-semibold tracking-[0.16em] text-white">
-          Admin Base
+          Remote Config
         </p>
         <p className="font-mono text-[9px] tracking-[0.18em] text-sidebar-foreground uppercase">
-          Admin Console
+          Config Console
         </p>
       </div>
     </div>
@@ -165,6 +186,80 @@ function Navigation({
   );
 }
 
+// 顶栏全局上下文:当前应用 / 当前环境,所有配置页面都跟着它走
+function ActiveConfigSwitcher() {
+  const { can } = useAuthentication();
+  const {
+    apps,
+    environments,
+    activeApp,
+    activeEnvironment,
+    selectApp,
+    selectEnvironment,
+  } = useActiveConfig();
+  if (!can('read', 'config')) {
+    return <div />;
+  }
+  return (
+    <div className="flex min-w-0 items-center gap-3 sm:gap-6">
+      <div className="flex items-center gap-2">
+        <span className="hidden font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase md:inline">
+          当前应用
+        </span>
+        <Select
+          value={activeApp ? String(activeApp.id) : ''}
+          // items 让触发器显示名称而不是 id
+          items={apps.map((app) => ({ value: String(app.id), label: app.name }))}
+          onValueChange={(value) => value && selectApp(Number(value))}
+        >
+          <SelectTrigger size="sm" className="min-w-32" aria-label="当前应用">
+            <SelectValue placeholder={apps.length ? '选择应用' : '暂无应用'} />
+          </SelectTrigger>
+          <SelectContent>
+            {apps.map((app) => (
+              <SelectItem key={app.id} value={String(app.id)}>
+                {app.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="hidden font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase md:inline">
+          当前环境
+        </span>
+        <Select
+          value={activeEnvironment ? String(activeEnvironment.id) : ''}
+          items={environments.map((environment) => ({
+            value: String(environment.id),
+            label: environment.name,
+          }))}
+          onValueChange={(value) => value && selectEnvironment(Number(value))}
+        >
+          <SelectTrigger
+            size="sm"
+            className="min-w-24 font-mono"
+            aria-label="当前环境"
+          >
+            <SelectValue placeholder="环境" />
+          </SelectTrigger>
+          <SelectContent>
+            {environments.map((environment) => (
+              <SelectItem
+                key={environment.id}
+                value={String(environment.id)}
+                className="font-mono"
+              >
+                {environment.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [isMobileNavigationOpen, setIsMobileNavigationOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -188,7 +283,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <SheetTitle className="sr-only">主导航</SheetTitle>
           <SheetDescription className="sr-only">
-            Admin Base 控制台页面导航
+            Remote Config 控制台页面导航
           </SheetDescription>
           <Brand />
           <Navigation onNavigate={() => setIsMobileNavigationOpen(false)} />
@@ -206,10 +301,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu />
           </Button>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-            <ShieldCheck className="size-3.5 text-primary" />
-            <span>通用后台管理</span>
-          </div>
+          <ActiveConfigSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

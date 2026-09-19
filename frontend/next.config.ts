@@ -53,6 +53,11 @@ function readAllowedDevelopmentOrigins(): string[] {
 const nextConfig: NextConfig = {
   output: "standalone",
   allowedDevOrigins: readAllowedDevelopmentOrigins(),
+  experimental: {
+    // 页面都是 'use client',RSC 壳没有按请求变化的内容;缓存 30s 让侧栏切页不必每次回源
+    // (源站在孟买,一次 RSC 往返 ~300ms,不缓存就是每次切页卡一下)
+    staleTimes: { dynamic: 30, static: 180 },
+  },
 };
 
 export default nextConfig;

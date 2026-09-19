@@ -1,14 +1,11 @@
-# mangrove 部署:1Panel 编排单文件,放 /opt/1panel/docker/compose/remote-config/
-# 目录名 == project name;源码同步到 /opt/remote-config/src 在服务器本地构建镜像
+# mangrove:1Panel 编排单文件,放 /opt/1panel/docker/compose/remote-config/
+# 镜像由 GitHub Actions 打 tag 后发布到 GHCR,服务器只 pull;版本号写在同目录 .env 的 REMOTE_CONFIG_VERSION
 # OpenResty 是 host 网络,端口只绑 127.0.0.1,反代 / -> 3101, /api/ -> 3100
 name: remote-config
 
 services:
   api:
-    build:
-      context: /opt/remote-config/src/backend
-      target: runtime
-    image: remote-config/api:local
+    image: ghcr.io/rezoch340/remote-config-backend:${REMOTE_CONFIG_VERSION}
     container_name: remote-config-api
     restart: unless-stopped
     volumes:
@@ -19,9 +16,7 @@ services:
       - 1panel-network
 
   web:
-    build:
-      context: /opt/remote-config/src/frontend
-    image: remote-config/web:local
+    image: ghcr.io/rezoch340/remote-config-frontend:${REMOTE_CONFIG_VERSION}
     container_name: remote-config-web
     restart: unless-stopped
     volumes:
@@ -36,10 +31,8 @@ services:
   # 一次性种子(管理员 + 权限目录):docker compose run --rm seed
   # 迁移不用管,api 启动时自动执行
   seed:
-    build:
-      context: /opt/remote-config/src/backend
-      target: seed
-    image: remote-config/seed:local
+    image: ghcr.io/rezoch340/remote-config-backend:${REMOTE_CONFIG_VERSION}
+    command: ["node", "dist/scripts/seed-admin.js"]
     profiles:
       - seed
     volumes:

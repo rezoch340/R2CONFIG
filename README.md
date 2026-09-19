@@ -60,16 +60,23 @@ pnpm dev:frontend
 
 管理员种子继续由 `pnpm seed:admin` 显式执行，创建超级管理员、七项通用权限与 `operator` 只读权限组；重复执行不会重置已存在管理员的密码。
 
-## 部署(mangrove)
+## 发布与部署
 
-`deploy/mangrove/` 下是服务器用的单文件 compose、配置示例和同步脚本。流程:
+镜像由 GitHub Actions 构建:推送 `v*` tag 触发 `.github/workflows/publish-ghcr.yml`,发布
+`ghcr.io/rezoch340/remote-config-backend` 和 `remote-config-frontend`(linux/amd64,同时打 `latest`)。
 
-1. 服务器 `/opt/1panel/docker/compose/remote-config/config.yaml` 按 `deploy/mangrove/config.example.yaml` 填好(600 权限)
-2. 本机执行 `deploy/mangrove/deploy.sh`:rsync 源码到 `/opt/remote-config/src`,服务器本地构建镜像并启动。**迁移由 API 启动时自动执行**,不用手动跑
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+服务器(mangrove)侧文件在 `deploy/mangrove/`:单文件 compose、配置示例、更新脚本。
+
+1. 首次:服务器 `/opt/1panel/docker/compose/remote-config/config.yaml` 按 `deploy/mangrove/config.example.yaml` 填好(600 权限,属主 uid 1000);仓库私有时服务器需 `docker login ghcr.io`(只读 packages 的 PAT)
+2. 本机执行 `deploy/mangrove/deploy.sh v0.1.0`:写入版本号、`docker compose pull` 并重启。**迁移由 API 启动时自动执行**
 3. 首次部署后跑一次种子建管理员:`cd /opt/1panel/docker/compose/remote-config && sudo docker compose run --rm seed`
 4. OpenResty 反代:`/` → `127.0.0.1:3101`,`/api/` → `127.0.0.1:3100`
 
-以后更新只需重复第 2 步。
+更新只需打新 tag,等 CI 发完镜像,再跑第 2 步。
 
 ## 验证
 

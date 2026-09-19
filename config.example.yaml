@@ -17,14 +17,14 @@ frontend:
 
 db:
   host: 127.0.0.1
-  port: 55432
+  port: 55433
   user: remote_config
   password: remote_config
   database: remote_config
 
 redis:
   host: 127.0.0.1
-  port: 56379
+  port: 56380
   password: null
   db: 0
 

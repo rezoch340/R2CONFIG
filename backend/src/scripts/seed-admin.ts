@@ -37,6 +37,14 @@ const ALL_PERMISSIONS: Array<{
     subject: 'rbac',
     description: '管理权限组、权限目录和用户分组',
   },
+  { action: 'read', subject: 'config', description: '查看远程配置' },
+  { action: 'create', subject: 'config', description: '创建应用、环境和参数' },
+  {
+    action: 'update',
+    subject: 'config',
+    description: '修改应用、参数和 server key',
+  },
+  { action: 'delete', subject: 'config', description: '删除应用、环境和参数' },
 ];
 
 // operator 权限组只挂 read/* 权限(只读,无 create/delete/invoke/manage)

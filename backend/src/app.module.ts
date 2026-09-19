@@ -11,6 +11,7 @@ import { ConfigModule } from './infrastructure/config/config.module';
 import { DbModule } from './infrastructure/db/db.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 import { SystemLogsModule } from './application/system-logs/system-logs.module';
+import { RemoteConfigModule } from './application/remote-config/remote-config.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { SystemLogsModule } from './application/system-logs/system-logs.module';
     AuthModule,
     UsersModule,
     SystemLogsModule,
+    RemoteConfigModule,
   ],
   providers: [
     // 全局鉴权:先 JWT(@Public 跳过),再 Permission(@RequirePermission 校验,fail-closed)

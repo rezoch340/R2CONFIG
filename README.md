@@ -52,7 +52,7 @@ pnpm seed:admin
 pnpm dev:frontend
 ```
 
-后台：[http://localhost:3101](http://localhost:3101)，API：[http://localhost:3100](http://localhost:3100)，Swagger：[http://localhost:3100/docs](http://localhost:3100/docs)。示例管理员是 `admin` / `admin123456`；初始化前可修改 `bootstrap.admin`。示例使用独立数据库 `remote_config`，PostgreSQL 端口 `55432`、Redis 端口 `56379`，可与原项目同时运行。
+后台：[http://localhost:3101](http://localhost:3101)，API：[http://localhost:3100](http://localhost:3100)，Swagger：[http://localhost:3100/docs](http://localhost:3100/docs)。示例管理员是 `admin` / `admin123456`；初始化前可修改 `bootstrap.admin`。示例使用独立数据库 `remote_config`，PostgreSQL 端口 `55433`、Redis 端口 `56380`，可与原项目同时运行。
 
 `config.yaml` 不进版本控制；部署前替换示例管理员密码、JWT 密钥和数据库密码。`compose.yaml` 中的数据库账号需与配置同步。前后端默认只读取本底座的配置，也可用 `CONFIG_FILE` 显式指定配置文件。浏览器只会收到 `frontend.apiUrl` 和 `frontend.apiPort`，不会收到后端密钥。局域网访问时，将实际前端地址加入 `app.corsOrigins`。
 

@@ -28,6 +28,12 @@ const AUDITED_RESOURCES: Record<string, AuditedResource> = {
     subject: 'rbac',
     targetType: 'rbac',
   },
+  config: {
+    label: '远程配置',
+    subject: 'config',
+    targetType: 'config',
+    safeQueryFields: ['search'],
+  },
   'system-logs': {
     label: '系统日志',
     subject: 'system-log',
@@ -62,8 +68,15 @@ function routeSegments(request: AuthedRequest): string[] {
     .filter((routeSegment) => routeSegment.length > 0);
 }
 
+// app 端拉取接口挂在 /v1 下,客户端轮询不进审计;拦截器和异常过滤器都走这里,一处生效
+const APP_FACING_ROUTE_PREFIX = 'v1';
+
 function auditedResourceOf(request: AuthedRequest): AuditedResource | null {
-  for (const routeSegment of routeSegments(request)) {
+  const segments = routeSegments(request);
+  if (segments[0] === APP_FACING_ROUTE_PREFIX) {
+    return null;
+  }
+  for (const routeSegment of segments) {
     const auditedResource = AUDITED_RESOURCES[routeSegment];
     if (auditedResource) {
       return auditedResource;

@@ -32,6 +32,22 @@ export const OPEN_API_SUCCESS_SCHEMAS: Record<string, SchemaDefinition> = {
   AuthController_login: schemaReference('LoginResponse'),
   AuthController_me: schemaReference('AuthenticatedUser'),
   SystemLogsController_list: schemaReference('SystemLogPage'),
+  RemoteConfigController_listApps: arraySchemaReference('ConfigApp'),
+  RemoteConfigController_createApp: schemaReference('ConfigApp'),
+  RemoteConfigController_updateApp: schemaReference('ConfigApp'),
+  RemoteConfigController_deleteApp: schemaReference('DeletedResult'),
+  RemoteConfigController_rotateServerKey: schemaReference('ConfigApp'),
+  RemoteConfigController_listEnvironments:
+    arraySchemaReference('ConfigEnvironment'),
+  RemoteConfigController_createEnvironment:
+    schemaReference('ConfigEnvironment'),
+  RemoteConfigController_deleteEnvironment: schemaReference('DeletedResult'),
+  RemoteConfigController_listParams: arraySchemaReference('ConfigParameter'),
+  RemoteConfigController_createParam: schemaReference('ConfigParameter'),
+  RemoteConfigController_importParams: schemaReference('ImportedResult'),
+  RemoteConfigController_updateParam: schemaReference('ConfigParameter'),
+  RemoteConfigController_deleteParam: schemaReference('DeletedResult'),
+  RemoteConfigPublicController_fetch: schemaReference('ConfigPayload'),
 };
 
 export const NOT_FOUND_OPERATION_IDS = new Set([
@@ -50,6 +66,18 @@ export const NOT_FOUND_OPERATION_IDS = new Set([
   'UsersController_remove',
   'UsersController_setPassword',
   'UsersController_setEnabled',
+  'RemoteConfigController_updateApp',
+  'RemoteConfigController_deleteApp',
+  'RemoteConfigController_rotateServerKey',
+  'RemoteConfigController_listEnvironments',
+  'RemoteConfigController_createEnvironment',
+  'RemoteConfigController_deleteEnvironment',
+  'RemoteConfigController_listParams',
+  'RemoteConfigController_createParam',
+  'RemoteConfigController_importParams',
+  'RemoteConfigController_updateParam',
+  'RemoteConfigController_deleteParam',
+  'RemoteConfigPublicController_fetch',
 ]);
 
 export const CONFLICT_OPERATION_IDS = new Set([
@@ -61,4 +89,7 @@ export const CONFLICT_OPERATION_IDS = new Set([
   'RbacController_assignRoleFromBody',
   'RbacController_assignRole',
   'UsersController_create',
+  'RemoteConfigController_createApp',
+  'RemoteConfigController_createEnvironment',
+  'RemoteConfigController_createParam',
 ]);

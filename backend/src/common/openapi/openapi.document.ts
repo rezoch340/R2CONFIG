@@ -25,7 +25,10 @@ type PathItem = OpenAPIObject['paths'][string];
 type Operation = NonNullable<PathItem['get']>;
 type ResponseDefinition = NonNullable<Operation['responses'][string]>;
 
-const PUBLIC_OPERATION_IDS = new Set(['AuthController_login']);
+const PUBLIC_OPERATION_IDS = new Set([
+  'AuthController_login',
+  'RemoteConfigPublicController_fetch',
+]);
 
 const STANDARD_ERROR_RESPONSES: Record<string, ResponseDefinition> = {
   BadRequest: errorResponse('请求参数、路径参数或查询参数不符合契约。'),

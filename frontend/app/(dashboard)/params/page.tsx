@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Pencil, Search, Trash2 } from 'lucide-react';
+import { Braces, ChevronRight, Pencil, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import { getRequestErrorMessage, requestApi } from '@/lib/api-client';
 import { useAuthentication } from '@/lib/auth';
 import { useActiveConfig } from '@/lib/config-context';
@@ -21,6 +20,15 @@ import { combineClassNames } from '@/lib/utils';
 import { ParamFormDialog, ParamImportDialog } from './param-dialogs';
 
 const UNGROUPED = '默认';
+
+// 列表里 json 只展示一行压缩预览,编辑走弹窗
+function compactJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text));
+  } catch {
+    return text;
+  }
+}
 
 // key 形如 Group:Key,冒号前为分组
 function splitKey(key: string): { group: string; name: string } {
@@ -194,28 +202,37 @@ export default function ParamsPage() {
         </button>
       );
     }
+    if (param.type === 'json') {
+      return (
+        <button
+          type="button"
+          disabled={!canUpdate}
+          aria-label={`编辑 ${param.key} 的 JSON`}
+          onClick={() => setEditingParam(param)}
+          className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed"
+        >
+          <Braces className="size-3.5 shrink-0 text-primary" />
+          <code className="truncate font-mono text-xs">
+            {compactJson(param.value)}
+          </code>
+        </button>
+      );
+    }
     const draft = drafts[param.id];
     const isDirty = draft !== undefined && draft !== param.value;
-    const displayValue = draft ?? param.value;
-    const commonProps = {
-      value: displayValue,
-      disabled: !canUpdate,
-      className: 'font-mono text-xs',
-      onChange: (
-        changeEvent: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-      ) =>
-        setDrafts((current) => ({
-          ...current,
-          [param.id]: changeEvent.target.value,
-        })),
-    };
     return (
       <div className="flex items-start gap-2">
-        {param.type === 'json' ? (
-          <Textarea rows={2} {...commonProps} />
-        ) : (
-          <Input {...commonProps} />
-        )}
+        <Input
+          value={draft ?? param.value}
+          disabled={!canUpdate}
+          className="font-mono text-xs"
+          onChange={(changeEvent) =>
+            setDrafts((current) => ({
+              ...current,
+              [param.id]: changeEvent.target.value,
+            }))
+          }
+        />
         <Button
           size="sm"
           variant={isDirty ? 'default' : 'secondary'}

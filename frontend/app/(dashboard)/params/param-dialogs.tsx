@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FieldError } from '@/components/field-error';
 import { FormDialog } from '@/components/form-dialog';
+import { JsonBuilder } from '@/components/json-builder/json-builder';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -108,6 +109,11 @@ export function ParamFormDialog({
       submitLabel={isEditing ? '保存' : '创建'}
       isSubmitting={isSubmitting}
       onSubmit={submit}
+      contentClassName={
+        type === 'json'
+          ? 'sm:max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto'
+          : undefined
+      }
     >
       {isEditing ? (
         <div className="space-y-2">
@@ -215,7 +221,7 @@ export function ParamFormDialog({
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="param-value">值</Label>
+        {type !== 'json' && <Label htmlFor="param-value">值</Label>}
         {type === 'boolean' ? (
           <Select value={value} onValueChange={(next) => setValue(String(next))}>
             <SelectTrigger id="param-value" className="w-full">
@@ -226,18 +232,22 @@ export function ParamFormDialog({
               <SelectItem value="false">false</SelectItem>
             </SelectContent>
           </Select>
+        ) : type === 'json' ? (
+          <JsonBuilder
+            value={value}
+            onChange={setValue}
+            header={<Label>值</Label>}
+          />
         ) : (
           <Textarea
             id="param-value"
             value={value}
-            rows={type === 'json' ? 6 : 2}
+            rows={2}
             className="font-mono text-xs"
-            placeholder={type === 'json' ? '{"visible": true}' : ''}
-            aria-invalid={showErrors && !!valueError}
             onChange={(changeEvent) => setValue(changeEvent.target.value)}
           />
         )}
-        <FieldError message={showErrors ? valueError : null} />
+        {type !== 'json' && <FieldError message={showErrors ? valueError : null} />}
       </div>
     </FormDialog>
   );

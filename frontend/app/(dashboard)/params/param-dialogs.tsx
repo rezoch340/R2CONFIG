@@ -20,10 +20,14 @@ import type {
 } from '@/lib/models';
 
 const KEY_PATTERN = /^[A-Za-z0-9_.-]+(:[A-Za-z0-9_.-]+)*$/;
-const KEY_HINT = 'key 只能包含字母、数字、_ . -,分组用冒号分隔,例如 App:MinVersion';
+const SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
+const SEGMENT_HINT = '只能包含字母、数字、_ . -';
+// 下拉里的两个特殊项
+const NO_GROUP = '__none__';
+const NEW_GROUP = '__new__';
 
-function validateKey(key: string): string | null {
-  return KEY_PATTERN.test(key.trim()) ? null : KEY_HINT;
+function validateSegment(segment: string): string | null {
+  return SEGMENT_PATTERN.test(segment.trim()) ? null : SEGMENT_HINT;
 }
 
 function validateValue(type: ConfigParamType, value: string): string | null {
@@ -41,12 +45,15 @@ export function ParamFormDialog({
   open,
   onOpenChange,
   param,
+  groups,
   isSubmitting,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   param?: ConfigParameter | null;
+  // 当前环境已有的分组,给下拉用;新组在下拉里选「新建分组」再手打一次
+  groups: string[];
   isSubmitting: boolean;
   onSubmit: (values: {
     key: string;
@@ -56,7 +63,11 @@ export function ParamFormDialog({
   }) => Promise<void>;
 }) {
   const isEditing = !!param;
-  const [key, setKey] = useState(param?.key ?? '');
+  const [group, setGroup] = useState(() =>
+    groups.length > 0 ? groups[0] : NEW_GROUP,
+  );
+  const [newGroup, setNewGroup] = useState('');
+  const [name, setName] = useState('');
   const [type, setType] = useState<ConfigParamType>(param?.type ?? 'text');
   const [scope, setScope] = useState<ConfigParamScope>(
     param?.scope ?? 'public',
@@ -64,15 +75,20 @@ export function ParamFormDialog({
   const [value, setValue] = useState(param?.value ?? '');
   // 提交过一次后才显示错误,避免刚打开就一片红
   const [showErrors, setShowErrors] = useState(false);
-  const keyError = isEditing ? null : validateKey(key);
+  const resolvedGroup = group === NEW_GROUP ? newGroup.trim() : group;
+  const groupError =
+    isEditing || group === NO_GROUP ? null : validateSegment(resolvedGroup);
+  const nameError = isEditing ? null : validateSegment(name);
   const valueError = validateValue(type, value);
+  const composedKey =
+    group === NO_GROUP ? name.trim() : `${resolvedGroup}:${name.trim()}`;
 
   async function submit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
     setShowErrors(true);
-    if (keyError || valueError) return;
+    if (groupError || nameError || valueError) return;
     await onSubmit({
-      key: key.trim(),
+      key: isEditing ? param.key : composedKey,
       type,
       scope,
       value: type === 'boolean' ? (value === 'true' ? 'true' : 'false') : value,
@@ -87,27 +103,80 @@ export function ParamFormDialog({
       description={
         isEditing
           ? 'key 不可修改;改类型时请同时把值改成对应格式。'
-          : '用 Group:Key 命名,同组参数会折叠在一起。'
+          : '先选分组再填参数名,同组参数会折叠在一起。'
       }
       submitLabel={isEditing ? '保存' : '创建'}
       isSubmitting={isSubmitting}
       onSubmit={submit}
     >
-      <div className="space-y-2">
-        <Label htmlFor="param-key">Key</Label>
-        <Input
-          id="param-key"
-          value={key}
-          maxLength={128}
-          disabled={isEditing}
-          placeholder="App:MinVersion"
-          className="font-mono"
-          autoComplete="off"
-          aria-invalid={showErrors && !!keyError}
-          onChange={(changeEvent) => setKey(changeEvent.target.value)}
-        />
-        <FieldError message={showErrors ? keyError : null} />
-      </div>
+      {isEditing ? (
+        <div className="space-y-2">
+          <Label htmlFor="param-key">Key</Label>
+          <Input
+            id="param-key"
+            value={param.key}
+            disabled
+            className="font-mono"
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>分组</Label>
+            <Select
+              value={group}
+              items={[
+                ...groups.map((existing) => ({ value: existing, label: existing })),
+                { value: NEW_GROUP, label: '＋ 新建分组' },
+                { value: NO_GROUP, label: '（不分组）' },
+              ]}
+              onValueChange={(next) => setGroup(String(next))}
+            >
+              <SelectTrigger className="w-full font-mono">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {groups.map((existing) => (
+                  <SelectItem key={existing} value={existing} className="font-mono">
+                    {existing}
+                  </SelectItem>
+                ))}
+                <SelectItem value={NEW_GROUP}>＋ 新建分组</SelectItem>
+                <SelectItem value={NO_GROUP}>（不分组）</SelectItem>
+              </SelectContent>
+            </Select>
+            {group === NEW_GROUP ? (
+              <Input
+                value={newGroup}
+                maxLength={64}
+                placeholder="App"
+                className="font-mono"
+                autoComplete="off"
+                aria-invalid={showErrors && !!groupError}
+                onChange={(changeEvent) => setNewGroup(changeEvent.target.value)}
+              />
+            ) : null}
+            <FieldError message={showErrors ? groupError : null} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="param-name">参数名</Label>
+            <Input
+              id="param-name"
+              value={name}
+              maxLength={64}
+              placeholder="MinVersion"
+              className="font-mono"
+              autoComplete="off"
+              aria-invalid={showErrors && !!nameError}
+              onChange={(changeEvent) => setName(changeEvent.target.value)}
+            />
+            <FieldError message={showErrors ? nameError : null} />
+          </div>
+          <p className="col-span-2 -mt-2 font-mono text-xs text-muted-foreground">
+            key = {composedKey || '…'}
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>类型</Label>

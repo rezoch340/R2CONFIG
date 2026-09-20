@@ -144,6 +144,17 @@ export default function ParamsPage() {
     );
   }, [parametersQuery.data, search]);
 
+  // 已有分组名(不含「默认」),给新增弹窗的下拉用
+  const groupNames = useMemo(
+    () =>
+      [...new Set(
+        (parametersQuery.data ?? [])
+          .map((param) => splitKey(param.key).group)
+          .filter((group) => group !== UNGROUPED),
+      )].sort((left, right) => left.localeCompare(right)),
+    [parametersQuery.data],
+  );
+
   function toggleGroup(group: string) {
     setCollapsedGroups((current) => {
       const next = new Set(current);
@@ -358,6 +369,7 @@ export default function ParamsPage() {
       <ParamFormDialog
         key={`create-${isCreateOpen}`}
         open={isCreateOpen}
+        groups={groupNames}
         onOpenChange={setIsCreateOpen}
         isSubmitting={createMutation.isPending}
         onSubmit={async (values) => {
@@ -371,6 +383,7 @@ export default function ParamsPage() {
           if (!open) setEditingParam(null);
         }}
         param={editingParam}
+        groups={groupNames}
         isSubmitting={updateMutation.isPending}
         onSubmit={async (values) => {
           if (!editingParam) return;

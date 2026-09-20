@@ -61,6 +61,7 @@ export function ParamFormDialog({
     type: ConfigParamType;
     scope: ConfigParamScope;
     value: string;
+    description: string;
   }) => Promise<void>;
 }) {
   const isEditing = !!param;
@@ -74,6 +75,7 @@ export function ParamFormDialog({
     param?.scope ?? 'public',
   );
   const [value, setValue] = useState(param?.value ?? '');
+  const [description, setDescription] = useState(param?.description ?? '');
   // 提交过一次后才显示错误,避免刚打开就一片红
   const [showErrors, setShowErrors] = useState(false);
   const resolvedGroup = group === NEW_GROUP ? newGroup.trim() : group;
@@ -93,6 +95,7 @@ export function ParamFormDialog({
       type,
       scope,
       value: type === 'boolean' ? (value === 'true' ? 'true' : 'false') : value,
+      description: description.trim(),
     });
   }
 
@@ -248,6 +251,16 @@ export function ParamFormDialog({
           />
         )}
         {type !== 'json' && <FieldError message={showErrors ? valueError : null} />}
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="param-description">描述</Label>
+        <Input
+          id="param-description"
+          value={description}
+          maxLength={200}
+          placeholder="这个参数控制什么,给同事看的"
+          onChange={(changeEvent) => setDescription(changeEvent.target.value)}
+        />
       </div>
     </FormDialog>
   );

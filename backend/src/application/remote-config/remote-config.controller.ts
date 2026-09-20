@@ -51,7 +51,7 @@ export class RemoteConfigController {
     @Param('id', ParseEntityIdPipe) appId: number,
     @Body() input: UpdateAppDto,
   ) {
-    return this.remoteConfigService.updateApp(appId, input.name);
+    return this.remoteConfigService.updateApp(appId, input);
   }
 
   @Delete('apps/:id')

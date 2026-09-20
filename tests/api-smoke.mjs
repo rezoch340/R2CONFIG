@@ -169,18 +169,23 @@ async function main() {
 // 建应用 → 加 public/private 参数 → 无 key 只见 public → 带 server key 见全部 → ETag/304
 async function remoteConfigSmoke() {
   const slug = `smoke-${suffix.replace(/_/g, '-')}`;
-  const app = await request('POST', '/config/apps', { body: { name: 'Smoke App', slug } });
+  const app = await request('POST', '/config/apps', {
+    body: { name: 'Smoke App', slug, description: '冒烟用' },
+  });
   appId = app.id;
   assert.match(app.serverKey, /^[0-9a-f]{64}$/, 'serverKey should be 64 hex chars');
+  assert.equal(app.description, '冒烟用');
+  assert.equal(app.enabled, true);
   await request('POST', '/config/apps', { body: { name: 'dup', slug }, status: 409 });
 
   const environments = await request('GET', `/config/apps/${appId}/environments`);
   assert.deepEqual(environments.map((environment) => environment.name), ['dev', 'prod']);
   const prod = environments.find((environment) => environment.name === 'prod');
 
-  await request('POST', `/config/environments/${prod.id}/params`, {
-    body: { key: 'Features:Beta', type: 'boolean', value: 'true' },
+  const beta = await request('POST', `/config/environments/${prod.id}/params`, {
+    body: { key: 'Features:Beta', type: 'boolean', value: 'true', description: '灰度开关' },
   });
+  assert.equal(beta.description, '灰度开关');
   await request('POST', `/config/environments/${prod.id}/params`, {
     body: { key: 'Secrets:Token', type: 'text', scope: 'private', value: 'hidden' },
   });
@@ -215,11 +220,25 @@ async function remoteConfigSmoke() {
   assert.equal((await fetch(publicUrl, { headers: { 'x-api-key': 'wrong' } })).status, 401);
   assert.equal((await fetch(`${baseUrl}/v1/config/${slug}/nope`)).status, 404);
 
-  const [beta] = await request('GET', `/config/environments/${prod.id}/params?search=Beta`);
   await request('PATCH', `/config/params/${beta.id}`, { body: { value: 'false' } });
   const changed = await fetch(publicUrl, { headers: { 'if-none-match': etag } });
   assert.equal(changed.status, 200, 'ETag should change after an update');
   assert.equal((await changed.json())['Features:Beta'], false);
+
+  // 停用应用:后台照常可读,公开拉取当不存在
+  const disabled = await request('PATCH', `/config/apps/${appId}`, { body: { enabled: false } });
+  assert.equal(disabled.enabled, false);
+  assert.equal((await fetch(publicUrl)).status, 404, 'disabled app should 404 publicly');
+  assert.equal(
+    (await fetch(publicUrl, { headers: { 'x-api-key': app.serverKey } })).status,
+    404,
+    'server key must not bypass a disabled app',
+  );
+  const renamed = await request('PATCH', `/config/apps/${appId}`, {
+    body: { enabled: true, name: 'Smoke App 2' },
+  });
+  assert.equal(renamed.name, 'Smoke App 2');
+  assert.equal((await fetch(publicUrl)).status, 200);
 }
 
 try {

@@ -33,6 +33,12 @@ export class CreateParamDto {
   })
   @IsString()
   value: string;
+
+  @ApiPropertyOptional({ maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  description?: string;
 }
 
 export class UpdateParamDto {
@@ -50,6 +56,12 @@ export class UpdateParamDto {
   @IsOptional()
   @IsString()
   value?: string;
+
+  @ApiPropertyOptional({ maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  description?: string;
 }
 
 export class QueryParamsDto {

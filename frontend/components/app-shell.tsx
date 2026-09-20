@@ -213,7 +213,10 @@ function ActiveConfigSwitcher() {
         <Select
           value={activeApp ? String(activeApp.id) : ''}
           // items 让触发器显示名称而不是 id
-          items={apps.map((app) => ({ value: String(app.id), label: app.name }))}
+          items={apps.map((app) => ({
+            value: String(app.id),
+            label: app.enabled ? app.name : `${app.name} · 已停用`,
+          }))}
           onValueChange={(value) => value && selectApp(Number(value))}
         >
           <SelectTrigger size="sm" className="min-w-32" aria-label="当前应用">
@@ -223,6 +226,9 @@ function ActiveConfigSwitcher() {
             {apps.map((app) => (
               <SelectItem key={app.id} value={String(app.id)}>
                 {app.name}
+                {!app.enabled && (
+                  <span className="ml-1 text-muted-foreground">· 已停用</span>
+                )}
               </SelectItem>
             ))}
           </SelectContent>

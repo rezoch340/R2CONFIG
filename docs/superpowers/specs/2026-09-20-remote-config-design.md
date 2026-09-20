@@ -13,13 +13,15 @@
 
 ## 数据模型
 
-三张表，加一个 Drizzle 迁移 `0001_remote_config.sql`，沿用 `users.schema.ts` 的写法（serial id、withTimezone 时间戳、软删不需要）。
+三张表，加一个 Drizzle 迁移 `0001_remote_config.sql`，沿用 `users.schema.ts` 的写法（serial id、withTimezone 时间戳、软删不需要）。`0002_app_description_enabled.sql` 后补了描述和启用开关。
 
 ```
 config_apps
   id            serial pk
   name          varchar(64)  not null            # 显示名
   slug          varchar(64)  not null unique     # 小写字母数字连字符，公开拉取 URL 用它标识应用
+  description   varchar(200) not null default '' # 给同事看的一句话
+  enabled       boolean      not null default true # 停用后公开拉取一律 404（带 server key 也一样），后台照常可编辑
   server_key    varchar(64)  not null unique     # 32 字节随机 hex；带上它才能读到 private 参数
   created_at    timestamptz  not null default now()
 
@@ -37,6 +39,7 @@ config_params
   type          varchar(16)  not null            # text | boolean | json
   scope         varchar(16)  not null default 'public'   # public: 无需凭证可读; private: 仅 server_key 可读
   value         text         not null            # 原文；boolean 存 "true"/"false"，json 存序列化串
+  description   varchar(200) not null default '' # 这个参数控制什么
   updated_at    timestamptz  not null default now()
   unique (environment_id, key)
 ```

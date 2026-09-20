@@ -221,11 +221,21 @@ export const OPEN_API_RESPONSE_SCHEMAS = {
   },
   ConfigApp: {
     type: 'object',
-    required: ['id', 'name', 'slug', 'serverKey', 'createdAt'],
+    required: [
+      'id',
+      'name',
+      'slug',
+      'description',
+      'enabled',
+      'serverKey',
+      'createdAt',
+    ],
     properties: {
       id: { type: 'integer', example: 1 },
       name: { type: 'string', example: 'My App' },
       slug: { type: 'string', example: 'my-app' },
+      description: { type: 'string', example: '面向用户的客户端应用' },
+      enabled: { type: 'boolean', description: '停用后公开拉取返回 404' },
       serverKey: {
         type: 'string',
         description: '64 位 hex;带上才能读到 private 参数',
@@ -235,11 +245,22 @@ export const OPEN_API_RESPONSE_SCHEMAS = {
   },
   ConfigAppWithEnvironments: {
     type: 'object',
-    required: ['id', 'name', 'slug', 'serverKey', 'createdAt', 'environments'],
+    required: [
+      'id',
+      'name',
+      'slug',
+      'description',
+      'enabled',
+      'serverKey',
+      'createdAt',
+      'environments',
+    ],
     properties: {
       id: { type: 'integer', example: 1 },
       name: { type: 'string', example: 'My App' },
       slug: { type: 'string', example: 'my-app' },
+      description: { type: 'string' },
+      enabled: { type: 'boolean' },
       serverKey: { type: 'string' },
       createdAt: dateTimeSchema,
       environments: {
@@ -267,12 +288,14 @@ export const OPEN_API_RESPONSE_SCHEMAS = {
       'type',
       'scope',
       'value',
+      'description',
       'updatedAt',
     ],
     properties: {
       id: { type: 'integer', example: 1 },
       environmentId: { type: 'integer', example: 1 },
       key: { type: 'string', example: 'Features:BiometricLogin' },
+      description: { type: 'string', example: '登录页是否展示生物识别入口' },
       type: { type: 'string', enum: ['text', 'boolean', 'json'] },
       scope: { type: 'string', enum: ['public', 'private'] },
       value: { type: 'string', description: '原文' },

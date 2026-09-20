@@ -1,8 +1,20 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CopyButton } from '@/components/copy-button';
@@ -12,47 +24,107 @@ import { PageHeader } from '@/components/page-header';
 import { PermissionBoundary } from '@/components/permission-boundary';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getRequestErrorMessage, requestApi } from '@/lib/api-client';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  getRequestErrorMessage,
+  requestApi,
+  resolveApiBaseUrl,
+} from '@/lib/api-client';
 import { useAuthentication } from '@/lib/auth';
 import { useActiveConfig } from '@/lib/config-context';
+import { ENVIRONMENT_DOT_CLASS, environmentTone } from '@/lib/environment-tone';
 import { formatDateTime } from '@/lib/format';
 import type { ConfigApp, ConfigEnvironment } from '@/lib/models';
+import { combineClassNames } from '@/lib/utils';
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SLUG_HINT = '只能是小写字母、数字和连字符,例如 my-app';
+const DESCRIPTION_MAX = 200;
+
+// 应用图标底色:按 slug 哈希,故意不放灰色系——灰是「已停用」专用,不能撞
+const APP_TILE_CLASSES = [
+  'bg-indigo-500 text-white',
+  'bg-emerald-500 text-white',
+  'bg-amber-500 text-white',
+  'bg-rose-500 text-white',
+  'bg-sky-500 text-white',
+  'bg-violet-500 text-white',
+  'bg-teal-500 text-white',
+  'bg-orange-500 text-white',
+];
+const DISABLED_TILE_CLASS = 'border bg-muted text-muted-foreground';
+
+function appTileClass(slug: string): string {
+  let hash = 0;
+  for (const character of slug) hash = (hash * 31 + character.charCodeAt(0)) | 0;
+  return APP_TILE_CLASSES[Math.abs(hash) % APP_TILE_CLASSES.length];
+}
+
+type SortKey = 'created' | 'name';
+const SORT_ITEMS: Array<{ value: SortKey; label: string }> = [
+  { value: 'created', label: '按创建时间' },
+  { value: 'name', label: '按名称' },
+];
 
 type Confirmation =
   | { type: 'delete-app'; app: ConfigApp }
   | { type: 'rotate-key'; app: ConfigApp }
   | { type: 'delete-env'; app: ConfigApp; environment: ConfigEnvironment };
 
+type AppPatch = Partial<Pick<ConfigApp, 'name' | 'description' | 'enabled'>>;
+
 export default function AppsPage() {
   const queryClient = useQueryClient();
   const { can } = useAuthentication();
   const { apps, isLoading } = useActiveConfig();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [renamingApp, setRenamingApp] = useState<ConfigApp | null>(null);
+  const [editingApp, setEditingApp] = useState<ConfigApp | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('created');
 
   const invalidateApps = () =>
     queryClient.invalidateQueries({ queryKey: ['config-apps'] });
 
   const visibleApps = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    if (!keyword) return apps;
-    return apps.filter(
-      (app) =>
-        app.name.toLowerCase().includes(keyword) ||
-        app.slug.includes(keyword),
-    );
-  }, [apps, search]);
+    const filtered = keyword
+      ? apps.filter(
+          (app) =>
+            app.name.toLowerCase().includes(keyword) ||
+            app.slug.includes(keyword) ||
+            app.description.toLowerCase().includes(keyword),
+        )
+      : apps;
+    if (sortKey === 'name') {
+      return [...filtered].sort((left, right) =>
+        left.name.localeCompare(right.name, 'zh-CN'),
+      );
+    }
+    // 接口本来就按 id 升序 = 创建时间;新建的放前面更顺手
+    return [...filtered].reverse();
+  }, [apps, search, sortKey]);
 
   const createMutation = useMutation({
-    mutationFn: (body: { name: string; slug: string }) =>
+    mutationFn: (body: { name: string; slug: string; description: string }) =>
       requestApi<ConfigApp>('/config/apps', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -66,19 +138,25 @@ export default function AppsPage() {
       toast.error(getRequestErrorMessage(error, '创建应用失败')),
   });
 
-  const renameMutation = useMutation({
-    mutationFn: (input: { id: number; name: string }) =>
+  const patchMutation = useMutation({
+    mutationFn: (input: { id: number; body: AppPatch }) =>
       requestApi<ConfigApp>(`/config/apps/${input.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name: input.name }),
+        body: JSON.stringify(input.body),
       }),
-    onSuccess: async () => {
-      toast.success('应用已重命名');
-      setRenamingApp(null);
+    onSuccess: async (app, input) => {
+      toast.success(
+        input.body.enabled === undefined
+          ? '应用已更新'
+          : app.enabled
+            ? `${app.name} 已启用`
+            : `${app.name} 已停用,app 端拉取会得到 404`,
+      );
+      setEditingApp(null);
       await invalidateApps();
     },
     onError: (error) =>
-      toast.error(getRequestErrorMessage(error, '重命名失败')),
+      toast.error(getRequestErrorMessage(error, '更新应用失败')),
   });
 
   const confirmMutation = useMutation({
@@ -113,7 +191,7 @@ export default function AppsPage() {
   return (
     <PermissionBoundary action="read" subject="config">
       <PageHeader
-        eyebrow="Apps"
+        eyebrow="Applications"
         title="应用"
         description="每个应用是一组配置的顶层容器,自带 dev / prod 环境;app 端用 slug 拉取配置。"
         actions={
@@ -128,7 +206,7 @@ export default function AppsPage() {
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {Array.from(Array(4).keys()).map((cardIndex) => (
+          {Array.from(Array(6).keys()).map((cardIndex) => (
             <AppCardSkeleton key={cardIndex} />
           ))}
         </div>
@@ -138,19 +216,35 @@ export default function AppsPage() {
         </p>
       ) : (
         <>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative max-w-sm flex-1">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
-                placeholder="搜索应用名或 slug…"
+                placeholder="搜索名称、slug 或描述…"
                 className="pl-8"
                 onChange={(changeEvent) => setSearch(changeEvent.target.value)}
               />
             </div>
-            <span className="font-mono text-xs text-muted-foreground">
-              {visibleApps.length} / {apps.length}
+            <span className="text-sm text-muted-foreground">
+              {search ? `${visibleApps.length} / ${apps.length}` : apps.length} 个应用
             </span>
+            <Select
+              value={sortKey}
+              items={SORT_ITEMS}
+              onValueChange={(value) => setSortKey(value as SortKey)}
+            >
+              <SelectTrigger size="sm" className="ml-auto w-36" aria-label="排序">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {visibleApps.length === 0 ? (
             <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -162,7 +256,11 @@ export default function AppsPage() {
                 <AppCard
                   key={app.id}
                   app={app}
-                  onRename={() => setRenamingApp(app)}
+                  isPatching={patchMutation.isPending}
+                  onEdit={() => setEditingApp(app)}
+                  onToggleEnabled={(enabled) =>
+                    patchMutation.mutate({ id: app.id, body: { enabled } })
+                  }
                   onConfirm={setConfirmation}
                 />
               ))}
@@ -171,22 +269,29 @@ export default function AppsPage() {
         </>
       )}
 
-      <AppCreateDialog
+      <AppFormDialog
         key={`create-${isCreateOpen}`}
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         isSubmitting={createMutation.isPending}
-        onCreate={async (values) => {
+        onSubmit={async (values) => {
           await createMutation.mutateAsync(values);
         }}
       />
-      <AppRenameDialog
-        key={`rename-${renamingApp?.id ?? 'closed'}`}
-        app={renamingApp}
-        isSubmitting={renameMutation.isPending}
-        onClose={() => setRenamingApp(null)}
-        onSave={async (appId, name) => {
-          await renameMutation.mutateAsync({ id: appId, name });
+      <AppFormDialog
+        key={`edit-${editingApp?.id ?? 'closed'}`}
+        open={editingApp !== null}
+        app={editingApp}
+        onOpenChange={(open) => {
+          if (!open) setEditingApp(null);
+        }}
+        isSubmitting={patchMutation.isPending}
+        onSubmit={async (values) => {
+          if (!editingApp) return;
+          await patchMutation.mutateAsync({
+            id: editingApp.id,
+            body: { name: values.name, description: values.description },
+          });
         }}
       />
       <ConfirmDialog
@@ -219,19 +324,29 @@ export default function AppsPage() {
 
 function AppCard({
   app,
-  onRename,
+  isPatching,
+  onEdit,
+  onToggleEnabled,
   onConfirm,
 }: {
   app: ConfigApp;
-  onRename: () => void;
+  isPatching: boolean;
+  onEdit: () => void;
+  onToggleEnabled: (enabled: boolean) => void;
   onConfirm: (confirmation: Confirmation) => void;
 }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { can } = useAuthentication();
+  const { selectApp } = useActiveConfig();
+  const [isKeyVisible, setIsKeyVisible] = useState(false);
+  const [isAddingEnvironment, setIsAddingEnvironment] = useState(false);
   const [newEnvironment, setNewEnvironment] = useState('');
   const [environmentError, setEnvironmentError] = useState<string | null>(
     null,
   );
+  const canUpdate = can('update', 'config');
+  const endpointPath = `/v1/config/${app.slug}/{env}`;
 
   const addEnvironment = useMutation({
     mutationFn: (name: string) =>
@@ -242,6 +357,7 @@ function AppCard({
     onSuccess: async (environment) => {
       toast.success(`环境 ${environment.name} 已添加`);
       setNewEnvironment('');
+      setIsAddingEnvironment(false);
       await queryClient.invalidateQueries({ queryKey: ['config-apps'] });
     },
     onError: (error) =>
@@ -259,154 +375,266 @@ function AppCard({
     addEnvironment.mutate(name);
   }
 
+  function openParams() {
+    selectApp(app.id);
+    router.push('/params');
+  }
+
   return (
-    <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold">{app.name}</h2>
-          <p className="font-mono text-xs text-muted-foreground">
-            {app.slug} · 创建于 {formatDateTime(app.createdAt)}
+    <section
+      className={combineClassNames(
+        'flex flex-col gap-4 rounded-xl border bg-card p-4 transition-opacity',
+        !app.enabled && 'opacity-60',
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={combineClassNames(
+            'flex size-11 shrink-0 items-center justify-center rounded-xl font-heading text-lg font-semibold',
+            app.enabled ? appTileClass(app.slug) : DISABLED_TILE_CLASS,
+          )}
+        >
+          {app.name.slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-base font-semibold">{app.name}</h2>
+            {app.enabled ? (
+              <Badge variant="outline" className="gap-1.5 text-xs">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                启用
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs">
+                已停用
+              </Badge>
+            )}
+          </div>
+          <p className="truncate font-mono text-xs text-muted-foreground">
+            {app.slug}
           </p>
         </div>
-        <div className="flex shrink-0 gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="重命名"
-            disabled={!can('update', 'config')}
-            onClick={onRename}
-          >
-            <Pencil />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="删除应用"
-            disabled={!can('delete', 'config')}
-            onClick={() => onConfirm({ type: 'delete-app', app })}
-          >
-            <Trash2 />
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
-          拉取地址
-        </p>
-        <code className="block truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs">
-          GET /v1/config/{app.slug}/{'{env}'}
-        </code>
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
-          Server key · 带上才能读 private 参数
-        </p>
-        <div className="flex items-center gap-2">
-          <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs">
-            {app.serverKey}
-          </code>
-          <CopyButton value={app.serverKey} label="复制 server key" />
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="重置 server key"
-            disabled={!can('update', 'config')}
-            onClick={() => onConfirm({ type: 'rotate-key', app })}
-          >
-            <RefreshCw />
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <p className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
-          环境
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {app.environments.map((environment) => (
-            <Badge
-              key={environment.id}
-              variant="secondary"
-              className="gap-1 pr-1 font-mono"
+        <div className="flex shrink-0 items-center gap-1">
+          <Switch
+            checked={app.enabled}
+            aria-label={app.enabled ? '停用应用' : '启用应用'}
+            disabled={!canUpdate || isPatching}
+            onCheckedChange={onToggleEnabled}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`${app.name} 更多操作`}
+                  className="text-muted-foreground"
+                />
+              }
             >
-              {environment.name}
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem disabled={!canUpdate} onClick={onEdit}>
+                <Pencil /> 编辑名称与描述
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canUpdate}
+                onClick={() => onConfirm({ type: 'rotate-key', app })}
+              >
+                <RefreshCw /> 重置 server key
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="focus:bg-destructive/10 focus:text-destructive focus:**:text-destructive"
+                disabled={!can('delete', 'config')}
+                onClick={() => onConfirm({ type: 'delete-app', app })}
+              >
+                <Trash2 /> 删除应用
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {app.description && (
+        <p className="-mt-1 line-clamp-2 text-sm text-muted-foreground">
+          {app.description}
+        </p>
+      )}
+
+      <div className="space-y-1.5">
+        <SectionLabel>Endpoint</SectionLabel>
+        <div className="flex items-center gap-2 rounded-md bg-muted/60 px-2 py-1.5">
+          <Badge variant="secondary" className="font-mono text-[10px]">
+            GET
+          </Badge>
+          <code className="min-w-0 flex-1 truncate font-mono text-xs">
+            {endpointPath}
+          </code>
+          <CopyButton
+            value={`${resolveApiBaseUrl()}${endpointPath}`}
+            label="复制拉取地址"
+            successMessage="已复制拉取地址"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionLabel>Server key</SectionLabel>
+        <div className="flex items-center gap-2 rounded-md bg-muted/60 px-2 py-1.5">
+          <code className="min-w-0 flex-1 truncate font-mono text-xs">
+            {isKeyVisible ? app.serverKey : '•'.repeat(24)}
+          </code>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label={isKeyVisible ? '隐藏 server key' : '显示 server key'}
+            onClick={() => setIsKeyVisible((current) => !current)}
+          >
+            {isKeyVisible ? <EyeOff /> : <Eye />}
+          </Button>
+          <CopyButton value={app.serverKey} label="复制 server key" />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionLabel>Environments · {app.environments.length}</SectionLabel>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          {app.environments.map((environment) => (
+            <span
+              key={environment.id}
+              className="group/env inline-flex items-center gap-1.5 text-sm"
+            >
+              <span
+                className={combineClassNames(
+                  'size-2 rounded-full',
+                  ENVIRONMENT_DOT_CLASS[environmentTone(environment.name)],
+                )}
+              />
+              <span className="font-mono text-xs">{environment.name}</span>
+              {can('delete', 'config') && (
+                <button
+                  type="button"
+                  aria-label={`删除环境 ${environment.name}`}
+                  className="rounded-full p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/env:opacity-100 hover:text-destructive focus-visible:opacity-100"
+                  onClick={() =>
+                    onConfirm({ type: 'delete-env', app, environment })
+                  }
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </span>
+          ))}
+          {can('create', 'config') &&
+            (isAddingEnvironment ? (
+              <form className="flex items-center gap-1" onSubmit={submitEnvironment}>
+                <Input
+                  autoFocus
+                  value={newEnvironment}
+                  placeholder="staging"
+                  maxLength={32}
+                  className="h-7 w-28 font-mono text-xs"
+                  aria-invalid={!!environmentError}
+                  onChange={(changeEvent) => {
+                    setNewEnvironment(changeEvent.target.value);
+                    setEnvironmentError(null);
+                  }}
+                  onKeyDown={(keyEvent) => {
+                    if (keyEvent.key === 'Escape') setIsAddingEnvironment(false);
+                  }}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="secondary"
+                  disabled={!newEnvironment.trim() || addEnvironment.isPending}
+                >
+                  添加
+                </Button>
+              </form>
+            ) : (
               <button
                 type="button"
-                aria-label={`删除环境 ${environment.name}`}
-                disabled={!can('delete', 'config')}
-                className="rounded-full p-0.5 hover:bg-foreground/10 disabled:opacity-40"
-                onClick={() =>
-                  onConfirm({ type: 'delete-env', app, environment })
-                }
+                aria-label="添加环境"
+                className="inline-flex size-6 items-center justify-center rounded-md border border-dashed text-muted-foreground hover:border-primary/40 hover:text-primary"
+                onClick={() => setIsAddingEnvironment(true)}
               >
-                <X className="size-3" />
+                <Plus className="size-3.5" />
               </button>
-            </Badge>
-          ))}
-          {can('create', 'config') ? (
-            <form className="flex items-center gap-1" onSubmit={submitEnvironment}>
-              <Input
-                value={newEnvironment}
-                placeholder="staging"
-                maxLength={32}
-                className="h-7 w-28 font-mono text-xs"
-                aria-invalid={!!environmentError}
-                onChange={(changeEvent) => {
-                  setNewEnvironment(changeEvent.target.value);
-                  setEnvironmentError(null);
-                }}
-              />
-              <Button
-                type="submit"
-                size="sm"
-                variant="secondary"
-                disabled={!newEnvironment.trim() || addEnvironment.isPending}
-              >
-                <Plus />
-                添加
-              </Button>
-            </form>
-          ) : null}
+            ))}
         </div>
         <FieldError message={environmentError} />
+      </div>
+
+      <div className="mt-auto flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
+        <span>创建于 {formatDateTime(app.createdAt).slice(0, 16)}</span>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-primary hover:underline"
+          onClick={openParams}
+        >
+          查看参数 <ArrowRight className="size-3.5" />
+        </button>
       </div>
     </section>
   );
 }
 
-function AppCreateDialog({
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
+      {children}
+    </p>
+  );
+}
+
+// 新建和编辑共用;传了 app 就是编辑,slug 不可改
+function AppFormDialog({
   open,
+  app,
   onOpenChange,
   isSubmitting,
-  onCreate,
+  onSubmit,
 }: {
   open: boolean;
+  app?: ConfigApp | null;
   onOpenChange: (open: boolean) => void;
   isSubmitting: boolean;
-  onCreate: (values: { name: string; slug: string }) => Promise<void>;
+  onSubmit: (values: {
+    name: string;
+    slug: string;
+    description: string;
+  }) => Promise<void>;
 }) {
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
+  const isEditing = !!app;
+  const [name, setName] = useState(app?.name ?? '');
+  const [slug, setSlug] = useState(app?.slug ?? '');
+  const [description, setDescription] = useState(app?.description ?? '');
   const [showErrors, setShowErrors] = useState(false);
   const nameError = name.trim() ? null : '名称不能为空';
-  const slugError = SLUG_PATTERN.test(slug) ? null : `slug ${SLUG_HINT}`;
+  const slugError =
+    isEditing || SLUG_PATTERN.test(slug) ? null : `slug ${SLUG_HINT}`;
 
   async function submit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
     setShowErrors(true);
     if (nameError || slugError) return;
-    await onCreate({ name: name.trim(), slug });
+    await onSubmit({ name: name.trim(), slug, description: description.trim() });
   }
 
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="新建应用"
-      description="slug 会出现在 app 端拉取的 URL 里,创建后不可改。"
-      submitLabel="创建"
+      title={isEditing ? '编辑应用' : '新建应用'}
+      description={
+        isEditing
+          ? 'slug 和 server key 不变。'
+          : 'slug 会出现在 app 端拉取的 URL 里,创建后不可改。'
+      }
+      submitLabel={isEditing ? '保存' : '创建'}
       isSubmitting={isSubmitting}
       onSubmit={submit}
     >
@@ -421,7 +649,7 @@ function AppCreateDialog({
           aria-invalid={showErrors && !!nameError}
           onChange={(changeEvent) => setName(changeEvent.target.value)}
         />
-          <FieldError message={showErrors ? nameError : null} />
+        <FieldError message={showErrors ? nameError : null} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="app-slug">Slug</Label>
@@ -432,79 +660,59 @@ function AppCreateDialog({
           placeholder="my-app"
           className="font-mono"
           autoComplete="off"
+          disabled={isEditing}
           aria-invalid={showErrors && !!slugError}
           onChange={(changeEvent) =>
             setSlug(changeEvent.target.value.toLowerCase())
           }
         />
-          <FieldError message={showErrors ? slugError : null} />
+        <FieldError message={showErrors ? slugError : null} />
       </div>
-    </FormDialog>
-  );
-}
-
-function AppRenameDialog({
-  app,
-  isSubmitting,
-  onClose,
-  onSave,
-}: {
-  app: ConfigApp | null;
-  isSubmitting: boolean;
-  onClose: () => void;
-  onSave: (appId: number, name: string) => Promise<void>;
-}) {
-  const [name, setName] = useState(app?.name ?? '');
-  return (
-    <FormDialog
-      open={app !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      title="重命名应用"
-      description="只改显示名,slug 和 server key 不变。"
-      isSubmitting={isSubmitting}
-      onSubmit={async (formEvent) => {
-        formEvent.preventDefault();
-        if (!app || !name.trim()) return;
-        await onSave(app.id, name.trim());
-      }}
-    >
       <div className="space-y-2">
-        <Label htmlFor="rename-app">名称</Label>
-        <Input
-          id="rename-app"
-          value={name}
-          maxLength={64}
-          onChange={(changeEvent) => setName(changeEvent.target.value)}
+        <Label htmlFor="app-description">描述</Label>
+        <Textarea
+          id="app-description"
+          value={description}
+          rows={2}
+          maxLength={DESCRIPTION_MAX}
+          placeholder="这个应用是干什么的,给同事看的"
+          onChange={(changeEvent) => setDescription(changeEvent.target.value)}
         />
       </div>
     </FormDialog>
   );
 }
 
-// 骨架和 AppCard 同结构:标题、拉取地址、server key、环境
+// 骨架和 AppCard 同结构
 function AppCardSkeleton() {
   return (
-    <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-      <div className="space-y-1.5">
-        <Skeleton className="h-5 w-28" />
-        <Skeleton className="h-3 w-44" />
-      </div>
-      <div className="space-y-1.5">
-        <Skeleton className="h-3 w-12" />
-        <Skeleton className="h-8 w-full" />
-      </div>
-      <div className="space-y-1.5">
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-8 w-full" />
-      </div>
-      <div className="space-y-1.5">
-        <Skeleton className="h-3 w-8" />
-        <div className="flex gap-2">
-          <Skeleton className="h-5 w-12" />
-          <Skeleton className="h-5 w-12" />
+    <section className="flex flex-col gap-4 rounded-xl border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <Skeleton className="size-11 rounded-xl" />
+        <div className="flex-1 space-y-1.5">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-3 w-20" />
         </div>
+      </div>
+      <Skeleton className="h-4 w-3/4" />
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-14" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-24" />
+        <div className="flex gap-3">
+          <Skeleton className="h-4 w-12" />
+          <Skeleton className="h-4 w-12" />
+        </div>
+      </div>
+      <div className="flex justify-between border-t pt-3">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-3 w-16" />
       </div>
     </section>
   );

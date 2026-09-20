@@ -1,4 +1,5 @@
 import {
+  boolean,
   integer,
   pgTable,
   serial,
@@ -15,6 +16,9 @@ export const configApps = pgTable(
     id: serial('id').primaryKey(),
     name: varchar('name', { length: 64 }).notNull(),
     slug: varchar('slug', { length: 64 }).notNull(),
+    description: varchar('description', { length: 200 }).notNull().default(''),
+    // 停用后公开拉取一律 404,后台照常可编辑
+    enabled: boolean('enabled').notNull().default(true),
     // 带上它才能读到 private 参数;public 参数无需任何凭证
     serverKey: varchar('server_key', { length: 64 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -57,6 +61,7 @@ export const configParameters = pgTable(
     type: varchar('type', { length: 16 }).notNull(),
     scope: varchar('scope', { length: 16 }).notNull().default('public'),
     value: text('value').notNull(),
+    description: varchar('description', { length: 200 }).notNull().default(''),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -101,7 +101,9 @@ export default function ParamsPage() {
   const updateMutation = useMutation({
     mutationFn: (input: {
       id: number;
-      body: Partial<Pick<ConfigParameter, 'type' | 'scope' | 'value'>>;
+      body: Partial<
+        Pick<ConfigParameter, 'type' | 'scope' | 'value' | 'description'>
+      >;
     }) =>
       requestApi<ConfigParameter>(`/config/params/${input.id}`, {
         method: 'PATCH',
@@ -122,7 +124,12 @@ export default function ParamsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (body: Pick<ConfigParameter, 'key' | 'type' | 'scope' | 'value'>) =>
+    mutationFn: (
+      body: Pick<
+        ConfigParameter,
+        'key' | 'type' | 'scope' | 'value' | 'description'
+      >,
+    ) =>
       requestApi<ConfigParameter>(
         `/config/environments/${environmentId}/params`,
         { method: 'POST', body: JSON.stringify(body) },
@@ -167,7 +174,13 @@ export default function ParamsPage() {
     const keyword = search.trim().toLowerCase();
     const grouped = new Map<string, ConfigParameter[]>();
     for (const param of parametersQuery.data ?? []) {
-      if (keyword && !param.key.toLowerCase().includes(keyword)) continue;
+      if (
+        keyword &&
+        !param.key.toLowerCase().includes(keyword) &&
+        !param.description.toLowerCase().includes(keyword)
+      ) {
+        continue;
+      }
       const { group } = splitKey(param.key);
       grouped.set(group, [...(grouped.get(group) ?? []), param]);
     }
@@ -314,7 +327,7 @@ export default function ParamsPage() {
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
-              placeholder="搜索参数 key…"
+              placeholder="搜索参数 key 或描述…"
               className="pl-8"
               onChange={(changeEvent) => setSearch(changeEvent.target.value)}
             />
@@ -370,6 +383,11 @@ export default function ParamsPage() {
                                 <p className="truncate font-medium">
                                   {humanizeKeyName(name)}
                                 </p>
+                                {param.description && (
+                                  <p className="line-clamp-2 text-xs text-muted-foreground">
+                                    {param.description}
+                                  </p>
+                                )}
                                 <p className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
                                   <span className="truncate">{param.key}</span>
                                   <button
@@ -462,7 +480,12 @@ export default function ParamsPage() {
           if (!editingParam) return;
           await updateMutation.mutateAsync({
             id: editingParam.id,
-            body: { type: values.type, scope: values.scope, value: values.value },
+            body: {
+              type: values.type,
+              scope: values.scope,
+              value: values.value,
+              description: values.description,
+            },
           });
         }}
       />

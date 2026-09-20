@@ -11,6 +11,7 @@ import { DbService } from '../../infrastructure/db/db.service';
 import { CreateAppDto } from './dto/create-app.dto';
 import { CreateEnvironmentDto } from './dto/create-environment.dto';
 import { CreateParamDto, UpdateParamDto } from './dto/param.dto';
+import { UpdateAppDto } from './dto/update-app.dto';
 import {
   coerceParamValue,
   computeConfigEtag,
@@ -67,6 +68,7 @@ export class RemoteConfigService {
         .values({
           name: input.name,
           slug: input.slug,
+          description: input.description ?? '',
           serverKey: newServerKey(),
         })
         .onConflictDoNothing()
@@ -81,10 +83,28 @@ export class RemoteConfigService {
     });
   }
 
-  async updateApp(appId: number, name: string) {
+  async updateApp(appId: number, input: UpdateAppDto) {
+    // drizzle 会跳过 undefined 的字段,但一个都没有时会抛错,先兜住
+    if (
+      input.name === undefined &&
+      input.description === undefined &&
+      input.enabled === undefined
+    ) {
+      await this.requireApp(appId);
+      const [app] = await this.database
+        .select()
+        .from(configApps)
+        .where(eq(configApps.id, appId))
+        .limit(1);
+      return app;
+    }
     const [app] = await this.database
       .update(configApps)
-      .set({ name })
+      .set({
+        name: input.name,
+        description: input.description,
+        enabled: input.enabled,
+      })
       .where(eq(configApps.id, appId))
       .returning();
     if (!app) {
@@ -176,6 +196,7 @@ export class RemoteConfigService {
         type: input.type,
         scope: input.scope ?? 'public',
         value: normalizeParamValue(input.type, input.value),
+        description: input.description ?? '',
       })
       .onConflictDoNothing()
       .returning();
@@ -203,6 +224,7 @@ export class RemoteConfigService {
         type,
         scope: input.scope ?? existing.scope,
         value: normalizeParamValue(type, rawValue),
+        description: input.description ?? existing.description,
         updatedAt: new Date(),
       })
       .where(eq(configParameters.id, paramId))
@@ -258,7 +280,8 @@ export class RemoteConfigService {
       .from(configApps)
       .where(eq(configApps.slug, slug))
       .limit(1);
-    if (!app) {
+    // 停用的应用对外当不存在,不泄露它曾经在
+    if (!app || !app.enabled) {
       throw new NotFoundException('应用不存在');
     }
     if (serverKey !== undefined && serverKey !== app.serverKey) {

@@ -9,7 +9,7 @@ declare global {
 
 const TOKEN_STORAGE_KEY = 'admin_base_auth_token';
 
-function resolveApiBaseUrl(): string {
+export function resolveApiBaseUrl(): string {
   const runtimeConfiguration =
     typeof window === 'undefined' ? undefined : window.__ADMIN_BASE_CONFIG__;
   if (runtimeConfiguration?.apiUrl) {

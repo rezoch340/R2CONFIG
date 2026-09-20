@@ -77,6 +77,9 @@ export interface ConfigApp {
   id: number;
   name: string;
   slug: string;
+  description: string;
+  // 停用后公开拉取 404,后台照常可编辑
+  enabled: boolean;
   serverKey: string;
   createdAt: string;
   environments: ConfigEnvironment[];
@@ -92,5 +95,6 @@ export interface ConfigParameter {
   type: ConfigParamType;
   scope: ConfigParamScope;
   value: string;
+  description: string;
   updatedAt: string;
 }

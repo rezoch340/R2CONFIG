@@ -60,6 +60,11 @@ pnpm dev:frontend
 
 管理员种子继续由 `pnpm seed:admin` 显式执行，创建超级管理员、七项通用权限与 `operator` 只读权限组；重复执行不会重置已存在管理员的密码。
 
+## app 端接入
+
+一个 GET 拉整份配置,ETag 304 省流量,`private` 参数要 server key。JS / Kotlin / Swift 三段可直接抄的客户端见
+[`docs/client-examples.md`](docs/client-examples.md)。
+
 ## 发布与部署
 
 镜像由 GitHub Actions 构建:推送 `v*` tag 触发 `.github/workflows/publish-ghcr.yml`,发布

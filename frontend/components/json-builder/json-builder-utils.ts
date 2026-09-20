@@ -28,6 +28,16 @@ export const JSON_TYPE_LABELS: Record<JsonType, string> = {
   null: 'Null',
 };
 
+// 类型符号是 R2CONFIG 自己的视觉语言,列表、构建器、菜单都用这一套
+export const JSON_TYPE_SYMBOLS: Record<JsonType, string> = {
+  string: 'Aa',
+  number: '#',
+  boolean: '◉',
+  object: '{ }',
+  array: '[ ]',
+  null: '∅',
+};
+
 export function jsonTypeOf(value: JsonValue): JsonType {
   if (value === null) return 'null';
   if (Array.isArray(value)) return 'array';

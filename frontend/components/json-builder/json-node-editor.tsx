@@ -39,6 +39,7 @@ import {
   inferPresentation,
   insertArrayItem,
   JSON_TYPE_LABELS,
+  JSON_TYPE_SYMBOLS,
   JSON_TYPES,
   jsonTypeOf,
   removeValueAtPath,
@@ -59,8 +60,20 @@ interface NodeProps {
 
 const TYPE_SELECT_ITEMS = JSON_TYPES.map((type) => ({
   value: type,
-  label: JSON_TYPE_LABELS[type],
+  label: `${JSON_TYPE_SYMBOLS[type]}  ${JSON_TYPE_LABELS[type]}`,
 }));
+
+// 菜单里的一行:符号 + 名字
+function TypeOption({ type }: { type: JsonType }) {
+  return (
+    <>
+      <span className="w-6 font-mono text-xs text-muted-foreground">
+        {JSON_TYPE_SYMBOLS[type]}
+      </span>
+      {JSON_TYPE_LABELS[type]}
+    </>
+  );
+}
 
 export function JsonNodeEditor({ root, path, onChange }: NodeProps) {
   const value = getValueAtPath(root, path);
@@ -322,7 +335,7 @@ function AddFieldForm({
           <SelectContent>
             {TYPE_SELECT_ITEMS.map((item) => (
               <SelectItem key={item.value} value={item.value}>
-                {item.label}
+                <TypeOption type={item.value} />
               </SelectItem>
             ))}
           </SelectContent>
@@ -376,7 +389,7 @@ function ArrayEditor({ root, path, onChange }: NodeProps) {
                 )
               }
             >
-              {JSON_TYPE_LABELS[type]}
+              <TypeOption type={type} />
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -588,14 +601,14 @@ export function NodeMenu({
                   key={type}
                   onClick={() => request({ kind: 'retype', type })}
                 >
-                  {JSON_TYPE_LABELS[type]}
+                  <TypeOption type={type} />
                 </DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            variant="destructive"
+            className="focus:bg-destructive/10 focus:text-destructive focus:**:text-destructive"
             onClick={() => request({ kind: 'delete' })}
           >
             {isRoot ? '清空' : '删除'}

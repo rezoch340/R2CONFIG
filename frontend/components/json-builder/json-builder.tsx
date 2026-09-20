@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Braces, Hash, List, Type } from 'lucide-react';
+import { Braces } from 'lucide-react';
 import { FieldError } from '@/components/field-error';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import {
   defaultValueFor,
   describeJsonError,
   JSON_TYPE_LABELS,
+  JSON_TYPE_SYMBOLS,
   jsonTypeOf,
   type JsonType,
   type JsonValue,
@@ -31,12 +32,7 @@ function parseSource(source: string): ParseResult {
   }
 }
 
-const ROOT_TYPE_CHOICES: Array<{ type: JsonType; icon: React.ReactNode }> = [
-  { type: 'object', icon: <Braces /> },
-  { type: 'array', icon: <List /> },
-  { type: 'string', icon: <Type /> },
-  { type: 'number', icon: <Hash /> },
-];
+const ROOT_TYPE_CHOICES: JsonType[] = ['object', 'array', 'string', 'number'];
 
 export function JsonBuilder({
   value,
@@ -96,7 +92,8 @@ export function JsonBuilder({
           ) : parsed.status === 'ok' ? (
             <>
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground">
+                  {JSON_TYPE_SYMBOLS[jsonTypeOf(parsed.data)]}{' '}
                   {JSON_TYPE_LABELS[jsonTypeOf(parsed.data)]}
                 </span>
                 <NodeMenu
@@ -179,15 +176,18 @@ function BlankState({ onPick }: { onPick: (type: JsonType) => void }) {
     <div className="flex flex-col items-center gap-4 py-6">
       <p className="text-sm text-muted-foreground">创建 JSON 数据,先选根节点类型</p>
       <div className="grid grid-cols-2 gap-2">
-        {ROOT_TYPE_CHOICES.map((choice) => (
+        {ROOT_TYPE_CHOICES.map((type) => (
           <Button
-            key={choice.type}
+            key={type}
             type="button"
             variant="outline"
             className="h-9 w-32 justify-start"
-            onClick={() => onPick(choice.type)}
+            onClick={() => onPick(type)}
           >
-            {choice.icon} {JSON_TYPE_LABELS[choice.type]}
+            <span className="w-6 font-mono text-muted-foreground">
+              {JSON_TYPE_SYMBOLS[type]}
+            </span>
+            {JSON_TYPE_LABELS[type]}
           </Button>
         ))}
       </div>

@@ -7,7 +7,7 @@ import { useTheme } from 'next-themes';
 import {
   Blocks,
   Boxes,
-  FileClock,
+  ScrollText,
   LayoutDashboard,
   LogOut,
   KeySquare,
@@ -42,6 +42,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useAuthentication } from '@/lib/auth';
+import { ENVIRONMENT_DOT_CLASS, environmentTone } from '@/lib/environment-tone';
 import { useActiveConfig } from '@/lib/config-context';
 import { combineClassNames } from '@/lib/utils';
 
@@ -99,7 +100,7 @@ const NAVIGATION_GROUPS: Array<{
       {
         href: '/system-logs',
         label: '系统日志',
-        icon: FileClock,
+        icon: ScrollText,
         permission: { action: 'read', subject: 'system-log' },
       },
     ],
@@ -174,8 +175,7 @@ function Navigation({
                 >
                   <NavigationIcon
                     className={combineClassNames(
-                      'size-4 transition-transform duration-200',
-                      isActive ? 'scale-110' : '',
+                      'size-4',
                     )}
                   />
                   {navigationItem.label}
@@ -245,6 +245,9 @@ function ActiveConfigSwitcher() {
             className="min-w-24 font-mono"
             aria-label="当前环境"
           >
+            {activeEnvironment && (
+              <EnvironmentDot name={activeEnvironment.name} />
+            )}
             <SelectValue placeholder="环境" />
           </SelectTrigger>
           <SelectContent>
@@ -254,6 +257,7 @@ function ActiveConfigSwitcher() {
                 value={String(environment.id)}
                 className="font-mono"
               >
+                <EnvironmentDot name={environment.name} />
                 {environment.name}
               </SelectItem>
             ))}
@@ -373,5 +377,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClose={() => setIsPasswordDialogOpen(false)}
       />
     </div>
+  );
+}
+
+// 生产红、开发绿,一眼看出自己在改哪个环境
+function EnvironmentDot({ name }: { name: string }) {
+  return (
+    <span
+      aria-hidden
+      className={combineClassNames(
+        'mr-1.5 inline-block size-1.5 shrink-0 rounded-full',
+        ENVIRONMENT_DOT_CLASS[environmentTone(name)],
+      )}
+    />
   );
 }

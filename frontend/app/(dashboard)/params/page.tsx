@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Braces, ChevronRight, Pencil, Search, Trash2 } from 'lucide-react';
+import {
+  ChevronRight,
+  Copy,
+  MoreVertical,
+  Pencil,
+  Search,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
@@ -10,24 +18,40 @@ import { PermissionBoundary } from '@/components/permission-boundary';
 import { QueryErrorState } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { getRequestErrorMessage, requestApi } from '@/lib/api-client';
 import { useAuthentication } from '@/lib/auth';
 import { useActiveConfig } from '@/lib/config-context';
-import type { ConfigParameter } from '@/lib/models';
+import { formatRelativeTime } from '@/lib/format';
+import type { ConfigApp, ConfigEnvironment, ConfigParameter } from '@/lib/models';
 import { combineClassNames } from '@/lib/utils';
 import { ParamFormDialog, ParamImportDialog } from './param-dialogs';
+import {
+  ENVIRONMENT_DOT_CLASS,
+  environmentTone,
+  GroupIcon,
+  humanizeKeyName,
+  JsonPreviewCard,
+  TypeTile,
+} from './param-presentation';
 
 const UNGROUPED = '默认';
+const ROW_GRID = 'grid-cols-[minmax(200px,1fr)_minmax(280px,2fr)_88px]';
 
-// 列表里 json 只展示一行压缩预览,编辑走弹窗
-function compactJson(text: string): string {
-  try {
-    return JSON.stringify(JSON.parse(text));
-  } catch {
-    return text;
-  }
+function copyText(text: string, label: string) {
+  void navigator.clipboard.writeText(text).then(
+    () => toast.success(`已复制${label}`),
+    () => toast.error('复制失败'),
+  );
 }
 
 // key 形如 Group:Key,冒号前为分组
@@ -173,58 +197,55 @@ export default function ParamsPage() {
   }
 
   function renderValueCell(param: ConfigParameter) {
+    const scopeBadge = (
+      <Badge
+        variant={param.scope === 'private' ? 'warning' : 'outline'}
+        className="font-mono text-[10px] uppercase"
+      >
+        {param.scope}
+      </Badge>
+    );
     if (param.type === 'boolean') {
       const isOn = param.value === 'true';
       return (
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isOn}
-          aria-label={`${param.key} 开关`}
-          disabled={!canUpdate || updateMutation.isPending}
-          onClick={() =>
-            updateMutation.mutate({
-              id: param.id,
-              body: { value: isOn ? 'false' : 'true' },
-            })
-          }
-          className={combineClassNames(
-            'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-            isOn ? 'bg-primary' : 'bg-muted-foreground/30',
-          )}
-        >
-          <span
-            className={combineClassNames(
-              'inline-block size-5 rounded-full bg-white shadow transition-transform',
-              isOn ? 'translate-x-5.5' : 'translate-x-0.5',
-            )}
+        <div className="flex h-10 items-center gap-3">
+          <Switch
+            checked={isOn}
+            aria-label={`${param.key} 开关`}
+            disabled={!canUpdate || updateMutation.isPending}
+            onCheckedChange={(checked) =>
+              updateMutation.mutate({
+                id: param.id,
+                body: { value: checked ? 'true' : 'false' },
+              })
+            }
           />
-        </button>
+          <span className="text-sm text-muted-foreground">
+            {isOn ? '开启' : '关闭'}
+          </span>
+          {scopeBadge}
+        </div>
       );
     }
     if (param.type === 'json') {
       return (
-        <button
-          type="button"
+        <JsonPreviewCard
+          source={param.value}
+          scopeBadge={scopeBadge}
           disabled={!canUpdate}
-          aria-label={`编辑 ${param.key} 的 JSON`}
-          onClick={() => setEditingParam(param)}
-          className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed"
-        >
-          <Braces className="size-3.5 shrink-0 text-primary" />
-          <code className="truncate font-mono text-xs">
-            {compactJson(param.value)}
-          </code>
-        </button>
+          onOpen={() => setEditingParam(param)}
+        />
       );
     }
     const draft = drafts[param.id];
     const isDirty = draft !== undefined && draft !== param.value;
     return (
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
+        <TypeTile type="string" />
         <Input
           value={draft ?? param.value}
           disabled={!canUpdate}
+          aria-label={`${param.key} 的值`}
           className="font-mono text-xs"
           onChange={(changeEvent) =>
             setDrafts((current) => ({
@@ -241,8 +262,9 @@ export default function ParamsPage() {
             updateMutation.mutate({ id: param.id, body: { value: draft } })
           }
         >
-          Update
+          保存
         </Button>
+        {scopeBadge}
       </div>
     );
   }
@@ -281,6 +303,13 @@ export default function ParamsPage() {
 
       {hasContext ? (
         <>
+          <AppHero
+            app={activeApp}
+            environment={activeEnvironment}
+            parameters={parametersQuery.data ?? []}
+            groupCount={groupNames.length}
+          />
+
           <div className="relative max-w-sm">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -291,39 +320,39 @@ export default function ParamsPage() {
             />
           </div>
 
-          <div className="overflow-hidden rounded-xl border bg-card">
-            <div className="grid grid-cols-[minmax(180px,1fr)_minmax(240px,2fr)_120px_100px] gap-4 border-b bg-muted/40 px-4 py-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
-              <span>参数</span>
-              <span>值</span>
-              <span>详情</span>
-              <span className="text-right">操作</span>
-            </div>
-            {parametersQuery.isLoading ? (
-              <ParamRowsSkeleton />
-            ) : groups.length === 0 ? (
-              <p className="p-8 text-center text-sm text-muted-foreground">
-                {search ? '没有匹配的参数' : '这个环境还没有参数'}
-              </p>
-            ) : (
-              groups.map(([group, parameters]) => {
+          {parametersQuery.isLoading ? (
+            <ParamRowsSkeleton />
+          ) : groups.length === 0 ? (
+            <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+              {search ? '没有匹配的参数' : '这个环境还没有参数'}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {groups.map(([group, parameters]) => {
                 const isCollapsed = collapsedGroups.has(group);
                 return (
-                  <section key={group} className="border-b last:border-b-0">
+                  <section
+                    key={group}
+                    className="overflow-hidden rounded-xl border bg-card"
+                  >
                     <button
                       type="button"
                       onClick={() => toggleGroup(group)}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold hover:bg-muted/40"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/40"
                     >
+                      <GroupIcon group={group} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{group}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {parameters.length} 个参数
+                        </span>
+                      </span>
                       <ChevronRight
                         className={combineClassNames(
                           'size-4 text-muted-foreground transition-transform',
                           isCollapsed ? '' : 'rotate-90',
                         )}
                       />
-                      {group}
-                      <span className="font-mono text-xs font-normal text-muted-foreground">
-                        {parameters.length}
-                      </span>
                     </button>
                     {isCollapsed
                       ? null
@@ -332,29 +361,31 @@ export default function ParamsPage() {
                           return (
                             <div
                               key={param.id}
-                              className="grid grid-cols-[minmax(180px,1fr)_minmax(240px,2fr)_120px_100px] items-start gap-4 border-t px-4 py-3"
+                              className={combineClassNames(
+                                'grid items-center gap-4 border-t px-4 py-3',
+                                ROW_GRID,
+                              )}
                             >
                               <div className="min-w-0">
-                                <p className="truncate font-medium">{name}</p>
-                                <p className="truncate font-mono text-xs text-muted-foreground">
-                                  {param.key}
+                                <p className="truncate font-medium">
+                                  {humanizeKeyName(name)}
+                                </p>
+                                <p className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+                                  <span className="truncate">{param.key}</span>
+                                  <button
+                                    type="button"
+                                    aria-label={`复制 ${param.key}`}
+                                    onClick={() => copyText(param.key, ' key')}
+                                    className="shrink-0 rounded p-0.5 hover:text-foreground"
+                                  >
+                                    <Copy className="size-3" />
+                                  </button>
                                 </p>
                               </div>
                               <div className="min-w-0">{renderValueCell(param)}</div>
-                              <div className="flex flex-col gap-1">
-                                <Badge variant="secondary" className="w-fit font-mono uppercase">
-                                  {param.type}
-                                </Badge>
-                                <Badge
-                                  variant={param.scope === 'private' ? 'warning' : 'outline'}
-                                  className="w-fit font-mono uppercase"
-                                >
-                                  {param.scope}
-                                </Badge>
-                              </div>
                               <div className="flex justify-end gap-1">
                                 <Button
-                                  size="icon"
+                                  size="icon-sm"
                                   variant="ghost"
                                   aria-label={`编辑 ${param.key}`}
                                   disabled={!canUpdate}
@@ -362,24 +393,49 @@ export default function ParamsPage() {
                                 >
                                   <Pencil />
                                 </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  aria-label={`删除 ${param.key}`}
-                                  disabled={!can('delete', 'config')}
-                                  onClick={() => setDeletingParam(param)}
-                                >
-                                  <Trash2 />
-                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger
+                                    render={
+                                      <Button
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        aria-label={`${param.key} 更多操作`}
+                                      />
+                                    }
+                                  >
+                                    <MoreVertical />
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onClick={() => copyText(param.key, ' key')}
+                                    >
+                                      <Copy /> 复制 key
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => copyText(param.value, '值')}
+                                    >
+                                      <Copy /> 复制值
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    {/* 删除默认中性,悬停才变红 */}
+                                    <DropdownMenuItem
+                                      className="focus:bg-destructive/10 focus:text-destructive focus:**:text-destructive"
+                                      disabled={!can('delete', 'config')}
+                                      onClick={() => setDeletingParam(param)}
+                                    >
+                                      <Trash2 /> 删除
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </div>
                           );
                         })}
                   </section>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </>
       ) : null}
 
@@ -435,31 +491,97 @@ export default function ParamsPage() {
   );
 }
 
+// 顶部应用卡:头像、环境、三个数字;生产环境多一条提醒
+function AppHero({
+  app,
+  environment,
+  parameters,
+  groupCount,
+}: {
+  app: ConfigApp;
+  environment: ConfigEnvironment;
+  parameters: ConfigParameter[];
+  groupCount: number;
+}) {
+  const tone = environmentTone(environment.name);
+  const latest = parameters.reduce<string | null>(
+    (newest, param) =>
+      newest === null || param.updatedAt > newest ? param.updatedAt : newest,
+    null,
+  );
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-4 rounded-xl border bg-card p-4">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary font-heading text-xl font-semibold text-primary-foreground">
+          {app.name.slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-heading text-lg font-semibold">{app.name}</h2>
+            <Badge variant="outline" className="gap-1.5 font-mono">
+              <span
+                className={combineClassNames(
+                  'size-1.5 rounded-full',
+                  ENVIRONMENT_DOT_CLASS[tone],
+                )}
+              />
+              {environment.name}
+            </Badge>
+          </div>
+          <p className="truncate font-mono text-xs text-muted-foreground">{app.slug}</p>
+        </div>
+        <dl className="flex gap-6 text-center">
+          <HeroStat label="参数" value={String(parameters.length)} />
+          <HeroStat label="分组" value={String(groupCount)} />
+          <HeroStat label="最近更新" value={formatRelativeTime(latest)} />
+        </dl>
+      </div>
+      {tone === 'production' && (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+          <TriangleAlert className="size-4 shrink-0" />
+          你正在编辑生产环境,保存后对所有用户立即生效。
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-14">
+      <dd className="font-heading text-lg font-semibold">{value}</dd>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+    </div>
+  );
+}
+
 // 骨架和真实行同一套网格,加载完不跳版
 function ParamRowsSkeleton() {
   return (
-    <section>
-      <div className="flex items-center gap-2 px-4 py-2.5">
-        <Skeleton className="size-4" />
-        <Skeleton className="h-4 w-20" />
+    <section className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Skeleton className="size-8 rounded-md" />
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-3 w-14" />
+        </div>
       </div>
       {Array.from(Array(4).keys()).map((rowIndex) => (
         <div
           key={rowIndex}
-          className="grid grid-cols-[minmax(180px,1fr)_minmax(240px,2fr)_120px_100px] items-start gap-4 border-t px-4 py-3"
+          className={combineClassNames(
+            'grid items-center gap-4 border-t px-4 py-3',
+            ROW_GRID,
+          )}
         >
           <div className="space-y-1.5">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-3 w-40" />
           </div>
-          <Skeleton className="h-8 w-full max-w-md" />
-          <div className="space-y-1">
-            <Skeleton className="h-5 w-14" />
-            <Skeleton className="h-5 w-16" />
-          </div>
+          <Skeleton className="h-10 w-full max-w-md" />
           <div className="flex justify-end gap-1">
-            <Skeleton className="size-8" />
-            <Skeleton className="size-8" />
+            <Skeleton className="size-7" />
+            <Skeleton className="size-7" />
           </div>
         </div>
       ))}

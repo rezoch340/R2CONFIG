@@ -31,6 +31,16 @@ function validateSegment(segment: string): string | null {
   return SEGMENT_PATTERN.test(segment.trim()) ? null : SEGMENT_HINT;
 }
 
+// json 以解析后的结构比较,原文空格缩进不同不算改
+function sameValue(type: ConfigParamType, left: string, right: string): boolean {
+  if (type !== 'json') return left === right;
+  try {
+    return JSON.stringify(JSON.parse(left)) === JSON.stringify(JSON.parse(right));
+  } catch {
+    return left === right;
+  }
+}
+
 function validateValue(type: ConfigParamType, value: string): string | null {
   if (type !== 'json') return null;
   try {
@@ -47,6 +57,7 @@ export function ParamFormDialog({
   onOpenChange,
   param,
   groups,
+  target,
   isSubmitting,
   onSubmit,
 }: {
@@ -55,6 +66,8 @@ export function ParamFormDialog({
   param?: ConfigParameter | null;
   // 当前环境已有的分组,给下拉用;新组在下拉里选「新建分组」再手打一次
   groups: string[];
+  // 「Fluxly / prod」这种,提交前让人看清改的是哪儿;生产环境额外标红
+  target?: { label: string; isProduction: boolean };
   isSubmitting: boolean;
   onSubmit: (values: {
     key: string;
@@ -85,6 +98,13 @@ export function ParamFormDialog({
   const valueError = validateValue(type, value);
   const composedKey =
     group === NO_GROUP ? name.trim() : `${resolvedGroup}:${name.trim()}`;
+  // 编辑时和原值逐项比,没改就不让保存;json 按解析后的结构比,只调格式不算改
+  const isDirty =
+    !isEditing ||
+    type !== param.type ||
+    scope !== param.scope ||
+    description.trim() !== param.description ||
+    !sameValue(type, value, param.value);
 
   async function submit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -105,30 +125,38 @@ export function ParamFormDialog({
       onOpenChange={onOpenChange}
       title={isEditing ? '编辑参数' : '新增参数'}
       description={
-        isEditing
-          ? 'key 不可修改;改类型时请同时把值改成对应格式。'
-          : '先选分组再填参数名,同组参数会折叠在一起。'
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {isEditing && (
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+              {param.key}
+            </code>
+          )}
+          {target && (
+            <span
+              className={
+                target.isProduction
+                  ? 'rounded bg-warning/12 px-1.5 py-0.5 font-mono text-xs text-warning'
+                  : 'rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground'
+              }
+            >
+              {target.label}
+            </span>
+          )}
+          <span>
+            {isEditing
+              ? 'key 不可修改;改类型时请同时把值改成对应格式。'
+              : '先选分组再填参数名,同组参数会折叠在一起。'}
+          </span>
+        </span>
       }
       submitLabel={isEditing ? '保存' : '创建'}
       isSubmitting={isSubmitting}
+      submitDisabled={!isDirty}
       onSubmit={submit}
-      contentClassName={
-        type === 'json'
-          ? 'sm:max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto'
-          : undefined
-      }
+      fillHeight={type === 'json'}
+      contentClassName={type === 'json' ? 'sm:max-w-2xl' : undefined}
     >
-      {isEditing ? (
-        <div className="space-y-2">
-          <Label htmlFor="param-key">Key</Label>
-          <Input
-            id="param-key"
-            value={param.key}
-            disabled
-            className="font-mono"
-          />
-        </div>
-      ) : (
+      {isEditing ? null : (
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>分组</Label>

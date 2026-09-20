@@ -221,7 +221,7 @@ function ArrayItemPreview({ index, item }: { index: number; item: JsonValue }) {
   if (title === null) {
     return (
       <li className="flex items-center gap-2 font-mono text-xs">
-        <span className="w-4 text-muted-foreground">{index + 1}</span>
+        <span className="w-6 shrink-0 text-muted-foreground/70">#{index + 1}</span>
         <span className="truncate">{shortValue(item)}</span>
       </li>
     );

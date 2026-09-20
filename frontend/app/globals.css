@@ -77,11 +77,12 @@
   --chart-4: #dc2626;
   --chart-5: #64748b;
   --radius: 0.75rem;
-  --sidebar: #0a1318;
-  --sidebar-foreground: #91a3ad;
-  --sidebar-accent: #14242b;
-  --sidebar-accent-foreground: #f4fbfc;
-  --sidebar-border: #17272e;
+  /* 浅色下侧栏跟页面一个亮度,不再是深色块 */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #4b5563;
+  --sidebar-accent: #e0e7ff;
+  --sidebar-accent-foreground: #4338ca;
+  --sidebar-border: #e3e8ee;
   --sidebar-ring: #818cf8;
 }
 
@@ -95,8 +96,8 @@
   --popover-foreground: #f4f4f5;
   --primary: #6366f1;
   --primary-foreground: #ffffff;
-  --secondary: #27272a;
-  --secondary-foreground: #a1a1aa;
+  --secondary: #2a2a2e;
+  --secondary-foreground: #e4e4e7;
   --muted: #18181b;
   --muted-foreground: #a1a1aa;
   --accent: #27272a;
@@ -104,8 +105,8 @@
   --destructive: #f87171;
   --success: #34d399;
   --warning: #f59e0b;
-  --border: #27272a;
-  --input: #3f3f46;
+  --border: #2e2e33;
+  --input: #46464d;
   --ring: #6366f1;
   --chart-1: #818cf8;
   --chart-2: #34d399;

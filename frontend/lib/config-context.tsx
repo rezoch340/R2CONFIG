@@ -34,6 +34,7 @@ interface ActiveConfigContextValue {
   apps: ConfigApp[];
   environments: ConfigEnvironment[];
   isLoading: boolean;
+  isError: boolean;
   activeApp: ConfigApp | null;
   activeEnvironment: ConfigEnvironment | null;
   selectApp: (appId: number) => void;
@@ -97,6 +98,7 @@ export function ActiveConfigProvider({ children }: { children: ReactNode }) {
       apps,
       environments,
       isLoading: appsQuery.isLoading,
+      isError: appsQuery.isError,
       activeApp,
       activeEnvironment,
       selectApp,
@@ -106,6 +108,7 @@ export function ActiveConfigProvider({ children }: { children: ReactNode }) {
       apps,
       environments,
       appsQuery.isLoading,
+      appsQuery.isError,
       activeApp,
       activeEnvironment,
       selectApp,

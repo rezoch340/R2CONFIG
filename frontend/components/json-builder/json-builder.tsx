@@ -77,6 +77,8 @@ export function JsonBuilder({
             active={!showVisual}
             onClick={() => {
               setSwitchError(null);
+              // 合法的原文默认格式化,值本身不变
+              if (parsed.status === 'ok') emit(parsed.data);
               setMode('raw');
             }}
           >
@@ -86,7 +88,7 @@ export function JsonBuilder({
       </div>
 
       {showVisual ? (
-        <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-input p-3">
+        <div className="max-h-[60vh] overflow-y-auto rounded-lg border border-input p-3">
           {parsed.status === 'blank' ? (
             <BlankState onPick={(type) => emit(defaultValueFor(type))} />
           ) : parsed.status === 'ok' ? (
@@ -111,7 +113,7 @@ export function JsonBuilder({
         <div className="space-y-2">
           <Textarea
             value={value}
-            rows={12}
+            rows={16}
             spellCheck={false}
             className="font-mono text-xs"
             placeholder='{"visible": true}'

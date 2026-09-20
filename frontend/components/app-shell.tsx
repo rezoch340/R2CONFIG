@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/sheet';
 import { useAuthentication } from '@/lib/auth';
 import { ENVIRONMENT_DOT_CLASS, environmentTone } from '@/lib/environment-tone';
+import { AppSwitcher } from '@/components/app-switcher';
 import { useActiveConfig } from '@/lib/config-context';
 import { combineClassNames } from '@/lib/utils';
 
@@ -110,12 +111,12 @@ const NAVIGATION_GROUPS: Array<{
 function Brand() {
   return (
     <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
-      <span className="relative flex size-9 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300 ring-1 ring-cyan-300/20">
+      <span className="relative flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
         <Blocks className="size-5" />
-        <span className="signal-pulse absolute -right-0.5 -top-0.5 size-2 rounded-full bg-cyan-300" />
+        <span className="signal-pulse absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary" />
       </span>
       <div>
-        <p className="font-heading text-sm font-semibold tracking-[0.16em] text-white">
+        <p className="font-heading text-sm font-semibold tracking-[0.16em] text-foreground">
           R2CONFIG
         </p>
         <p className="font-mono text-[9px] tracking-[0.18em] text-sidebar-foreground uppercase">
@@ -167,7 +168,7 @@ function Navigation({
                   onNavigate={() => onNavigate?.()}
                   className={combineClassNames(
                     // 悬停时整项右移一点点,配合颜色过渡,点击有去处的感觉
-                    'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-200 ease-out',
+                    'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-all duration-200 ease-out',
                     isActive
                       ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                       : 'text-sidebar-foreground hover:translate-x-0.5 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
@@ -198,6 +199,7 @@ function ActiveConfigSwitcher() {
     environments,
     activeApp,
     activeEnvironment,
+    isLoading,
     selectApp,
     selectEnvironment,
   } = useActiveConfig();
@@ -210,29 +212,12 @@ function ActiveConfigSwitcher() {
         <span className="hidden font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase md:inline">
           当前应用
         </span>
-        <Select
-          value={activeApp ? String(activeApp.id) : ''}
-          // items 让触发器显示名称而不是 id
-          items={apps.map((app) => ({
-            value: String(app.id),
-            label: app.enabled ? app.name : `${app.name} · 已停用`,
-          }))}
-          onValueChange={(value) => value && selectApp(Number(value))}
-        >
-          <SelectTrigger size="sm" className="min-w-32" aria-label="当前应用">
-            <SelectValue placeholder={apps.length ? '选择应用' : '暂无应用'} />
-          </SelectTrigger>
-          <SelectContent>
-            {apps.map((app) => (
-              <SelectItem key={app.id} value={String(app.id)}>
-                {app.name}
-                {!app.enabled && (
-                  <span className="ml-1 text-muted-foreground">· 已停用</span>
-                )}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AppSwitcher
+          apps={apps}
+          activeApp={activeApp}
+          isLoading={isLoading}
+          onSelect={selectApp}
+        />
       </div>
       <div className="flex items-center gap-2">
         <span className="hidden font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase md:inline">

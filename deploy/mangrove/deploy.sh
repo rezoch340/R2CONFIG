@@ -5,13 +5,13 @@ set -euo pipefail
 VERSION=${1:?用法: deploy.sh <vX.Y.Z>}
 HOST=${HOST:?请用 HOST=user@host 指定服务器}
 KEY=${KEY:-~/.ssh/mangrove}
-COMPOSE_DIR=/opt/1panel/docker/compose/remote-config
+COMPOSE_DIR=/opt/1panel/docker/compose/r2config
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 
-scp -i "$KEY" "$REPO/deploy/mangrove/docker-compose.yml" "$HOST:/tmp/remote-config-compose.yml"
+scp -i "$KEY" "$REPO/deploy/mangrove/docker-compose.yml" "$HOST:/tmp/r2config-compose.yml"
 ssh -i "$KEY" "$HOST" "sudo bash -s" <<REMOTE
 set -e
-mkdir -p $COMPOSE_DIR && mv /tmp/remote-config-compose.yml $COMPOSE_DIR/docker-compose.yml
+mkdir -p $COMPOSE_DIR && mv /tmp/r2config-compose.yml $COMPOSE_DIR/docker-compose.yml
 cd $COMPOSE_DIR
 printf 'REMOTE_CONFIG_VERSION=%s\n' '$VERSION' > .env
 docker compose pull api web

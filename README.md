@@ -1,4 +1,4 @@
-# Remote Config
+# R2CONFIG
 
 从 [R2RPC](https://github.com/rezoch340/R2RPC) 提取的独立通用后台底座。前后端源码、依赖锁文件、配置示例和数据库迁移都在本仓库，可独立克隆、运行和开发。
 
@@ -16,7 +16,7 @@
 ## 目录
 
 ```text
-remote-config/
+R2CONFIG/
 ├── frontend/             # Next.js 16 + React 19 + Tailwind CSS 4
 ├── backend/              # NestJS 11 + Drizzle + PostgreSQL + Redis
 │   ├── src/application/  # auth / users / rbac / system-logs
@@ -29,11 +29,11 @@ remote-config/
 
 ## 启动
 
-要求 Node.js 24、pnpm 11.17.0，以及 Docker Compose（或自行提供 PostgreSQL 16 和 Redis 7）。以下命令都在 `remote-config/` 内执行。
+要求 Node.js 24、pnpm 11.17.0，以及 Docker Compose（或自行提供 PostgreSQL 16 和 Redis 7）。以下命令都在 `R2CONFIG/` 内执行。
 
 ```bash
-git clone git@github.com:rezoch340/remote-config.git
-cd remote-config
+git clone git@github.com:rezoch340/R2CONFIG.git
+cd R2CONFIG
 cp config.example.yaml config.yaml
 pnpm run setup
 docker compose up -d --wait
@@ -63,7 +63,7 @@ pnpm dev:frontend
 ## 发布与部署
 
 镜像由 GitHub Actions 构建:推送 `v*` tag 触发 `.github/workflows/publish-ghcr.yml`,发布
-`ghcr.io/rezoch340/remote-config-api` 和 `remote-config-web`(linux/amd64,同时打 `latest`)。
+`ghcr.io/rezoch340/r2config-api` 和 `r2config-web`(linux/amd64,同时打 `latest`)。
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
@@ -71,9 +71,9 @@ git tag v0.1.0 && git push origin v0.1.0
 
 服务器(mangrove)侧文件在 `deploy/mangrove/`:单文件 compose、配置示例、更新脚本。
 
-1. 首次:服务器 `/opt/1panel/docker/compose/remote-config/config.yaml` 按 `deploy/mangrove/config.example.yaml` 填好(600 权限,属主 uid 1000);仓库私有时服务器需 `docker login ghcr.io`(只读 packages 的 PAT)
+1. 首次:服务器 `/opt/1panel/docker/compose/r2config/config.yaml` 按 `deploy/mangrove/config.example.yaml` 填好(600 权限,属主 uid 1000);仓库私有时服务器需 `docker login ghcr.io`(只读 packages 的 PAT)
 2. 本机执行 `deploy/mangrove/deploy.sh v0.1.0`:写入版本号、`docker compose pull` 并重启。**迁移由 API 启动时自动执行**
-3. 首次部署后跑一次种子建管理员:`cd /opt/1panel/docker/compose/remote-config && sudo docker compose run --rm seed`
+3. 首次部署后跑一次种子建管理员:`cd /opt/1panel/docker/compose/r2config && sudo docker compose run --rm seed`
 4. OpenResty 反代:`/` → `127.0.0.1:3101`,`/api/` → `127.0.0.1:3100`
 
 更新只需打新 tag,等 CI 发完镜像,再跑第 2 步。

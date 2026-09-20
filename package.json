@@ -1,5 +1,5 @@
 {
-  "name": "remote-config",
+  "name": "r2config",
   "version": "0.1.0",
   "private": true,
   "description": "独立的前后端通用后台底座",

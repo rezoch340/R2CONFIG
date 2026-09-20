@@ -115,7 +115,7 @@ function Brand() {
       </span>
       <div>
         <p className="font-heading text-sm font-semibold tracking-[0.16em] text-white">
-          Remote Config
+          R2CONFIG
         </p>
         <p className="font-mono text-[9px] tracking-[0.18em] text-sidebar-foreground uppercase">
           Config Console
@@ -302,7 +302,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <SheetTitle className="sr-only">主导航</SheetTitle>
           <SheetDescription className="sr-only">
-            Remote Config 控制台页面导航
+            R2CONFIG 控制台页面导航
           </SheetDescription>
           <Brand />
           <Navigation onNavigate={() => setIsMobileNavigationOpen(false)} />

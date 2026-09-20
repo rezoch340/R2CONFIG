@@ -11,7 +11,7 @@ pnpm dev:api
 
 开发和生产启动都会在开放 HTTP 端口前自动执行未应用的数据库迁移。重复启动不会重复执行历史迁移，多实例通过 PostgreSQL 锁串行迁移；失败会终止启动并返回非零退出码。首次启动成功后，在另一个终端执行 `pnpm seed:admin` 初始化管理员。
 
-默认端口 `3100`，API 文档在 `/docs`。源码和编译产物都默认读取 `remote-config/config.yaml`，可使用 `CONFIG_FILE` 显式覆盖；不会向上查找原项目配置。
+默认端口 `3100`，API 文档在 `/docs`。源码和编译产物都默认读取 `R2CONFIG/config.yaml`，可使用 `CONFIG_FILE` 显式覆盖；不会向上查找原项目配置。
 
 ```bash
 pnpm lint:check

@@ -1,5 +1,5 @@
 {
-  "name": "remote-config-backend",
+  "name": "r2config-backend",
   "version": "0.1.0",
   "description": "Reusable administration API: authentication, users, RBAC and audit logs",
   "author": "R2RPC Contributors",
@@ -7,12 +7,12 @@
   "license": "UNLICENSED",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rezoch340/remote-config.git",
+    "url": "git+https://github.com/rezoch340/R2CONFIG.git",
     "directory": "backend"
   },
-  "homepage": "https://github.com/rezoch340/remote-config#readme",
+  "homepage": "https://github.com/rezoch340/R2CONFIG#readme",
   "bugs": {
-    "url": "https://github.com/rezoch340/remote-config/issues"
+    "url": "https://github.com/rezoch340/R2CONFIG/issues"
   },
   "packageManager": "pnpm@11.17.0",
   "scripts": {

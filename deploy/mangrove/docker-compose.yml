@@ -1,12 +1,12 @@
-# mangrove:1Panel 编排单文件,放 /opt/1panel/docker/compose/remote-config/
+# mangrove:1Panel 编排单文件,放 /opt/1panel/docker/compose/r2config/
 # 镜像由 GitHub Actions 打 tag 后发布到 GHCR,服务器只 pull;版本号写在同目录 .env 的 REMOTE_CONFIG_VERSION
 # OpenResty 是 host 网络,端口只绑 127.0.0.1,反代 / -> 3101, /api/ -> 3100
-name: remote-config
+name: r2config
 
 services:
   api:
-    image: ghcr.io/rezoch340/remote-config-api:${REMOTE_CONFIG_VERSION}
-    container_name: remote-config-api
+    image: ghcr.io/rezoch340/r2config-api:${REMOTE_CONFIG_VERSION}
+    container_name: r2config-api
     restart: unless-stopped
     volumes:
       - ./config.yaml:/app/config.yaml:ro
@@ -16,8 +16,8 @@ services:
       - 1panel-network
 
   web:
-    image: ghcr.io/rezoch340/remote-config-web:${REMOTE_CONFIG_VERSION}
-    container_name: remote-config-web
+    image: ghcr.io/rezoch340/r2config-web:${REMOTE_CONFIG_VERSION}
+    container_name: r2config-web
     restart: unless-stopped
     volumes:
       - ./config.yaml:/app/config.yaml:ro
@@ -31,7 +31,7 @@ services:
   # 一次性种子(管理员 + 权限目录):docker compose run --rm seed
   # 迁移不用管,api 启动时自动执行
   seed:
-    image: ghcr.io/rezoch340/remote-config-api:${REMOTE_CONFIG_VERSION}
+    image: ghcr.io/rezoch340/r2config-api:${REMOTE_CONFIG_VERSION}
     command: ["node", "dist/scripts/seed-admin.js"]
     profiles:
       - seed

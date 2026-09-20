@@ -16,7 +16,7 @@ const fontMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Remote Config',
+  title: 'R2CONFIG',
   description: '应用动态配置下发后台',
 };
 

@@ -23,10 +23,10 @@ jobs:
         include:
           - name: backend
             context: ./backend
-            image: ghcr.io/rezoch340/remote-config-api
+            image: ghcr.io/rezoch340/r2config-api
           - name: frontend
             context: ./frontend
-            image: ghcr.io/rezoch340/remote-config-web
+            image: ghcr.io/rezoch340/r2config-web
     concurrency:
       group: publish-ghcr-${{ github.repository }}-${{ matrix.name }}
       cancel-in-progress: false

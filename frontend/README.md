@@ -2,7 +2,7 @@
 
 独立通用后台，使用 Next.js、React、TypeScript、Tailwind CSS 和 shadcn/ui。包含登录、响应式菜单、后台账号、权限组与权限目录、本人改密、系统日志，以及通用表格、筛选、分页和弹窗组件。
 
-在 `remote-config/` 中准备好 `config.yaml` 并启动后端，再运行：
+在 `R2CONFIG/` 中准备好 `config.yaml` 并启动后端，再运行：
 
 ```bash
 cd frontend

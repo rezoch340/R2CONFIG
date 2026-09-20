@@ -29,7 +29,7 @@ redis:
   db: 0
 
 jwt:
-  secret: remote-config-change-this-secret-before-production
+  secret: r2config-change-this-secret-before-production
   expiresIn: 7d
   authorizationCacheTtlSeconds: 60
 
